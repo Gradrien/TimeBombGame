@@ -17,7 +17,7 @@ export function PhaseOverlay() {
   if (!gameState || !socket || ['PLAYING', 'LOBBY', 'FINISHED'].includes(gameState.phase)) return null;
 
   const me = gameState.players.find(p => p.id === socket.id);
-  const isReady = gameState.readyPlayers.includes(socket.id);
+  const isReady = gameState.readyPlayers.includes(socket.id || '');
 
   const revealCardsOneByOne = () => {
 	if (!me?.secretCards) return;
