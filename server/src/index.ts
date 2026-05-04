@@ -7,8 +7,10 @@ import { setupSocketHandlers } from './roomManager';
 const app = express();
 const httpServer = createServer(app);
 const io = new Server(httpServer, {
-  cors: { origin: '*' } // À restreindre en prod
-});
+  cors: {
+    origin: process.env.CLIENT_URL || '*', // En prod, on passera l'URL exacte
+    methods: ["GET", "POST"]
+  }});
 
 io.on('connection', (socket) => {
   console.log('🕵️ Nouveau joueur connecté:', socket.id);

@@ -202,6 +202,27 @@ export function setupSocketHandlers(io: Server, socket: Socket) {
 	broadcastGameState(io, roomId);
   });
 
+  socket.on('restartGame', (roomId: string) => {
+	const room = activeRooms.get(roomId);
+	if (!room) return;
+
+	// Réinitialisation complète
+	room.status = 'PLAYING';
+	room.phase = 'ROLE_REVEAL';
+	room.readyPlayers = [];
+	room.revealedCards = [];
+	room.currentRound = 1;
+	room.cardsRevealedThisRound = 0;
+	room.totalDefusesFound = 0;
+	room.winner = undefined;
+
+	assignRoles(room.players);
+	const deck = generateInitialDeck(room.players.length as any);
+	distributeCards(deck, room.players);
+
+	broadcastGameState(io, roomId);
+  });
+
   // GESTION DE LA DÉCONNEXION
   socket.on('disconnect', () => {
 	// Pour simplifier, on cherche le joueur dans toutes les rooms actives

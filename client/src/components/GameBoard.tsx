@@ -1,11 +1,38 @@
 // client/src/components/GameBoard.tsx
-import { useGameStore } from '@/store/useGameStore';
+import { useState, useEffect } from 'react';
 import Image from 'next/image';
+import { useGameStore } from '@/store/useGameStore';
 import { PlayerHand } from './PlayerHand';
 import { PhaseOverlay } from './PhaseOverlay';
+import { Card as CardType } from '@timebomb/shared';
+import { getCardImage, getRoleImage } from '@/utils/assets';
 
 export function GameBoard() {
   const { gameState, socket, cutCard } = useGameStore();
+  const [lastCutCard, setLastCutCard] = useState<CardType | null>(null);
+
+// 1. DÉTECTION DE COUPE : Affiche la carte coupée en grand
+  useEffect(() => {
+	// CORRECTION : Si la partie est relancée et le tableau vidé, on force la disparition
+	if (!gameState?.revealedCards || gameState.revealedCards.length === 0) {
+	  setLastCutCard(null);
+	  return;
+	}
+
+	const newCard = gameState.revealedCards[gameState.revealedCards.length - 1];
+	let hideTimer: NodeJS.Timeout;
+
+	const showTimer = setTimeout(() => {
+	  setLastCutCard(newCard);
+	  // On programme la disparition après 2.5s
+	  hideTimer = setTimeout(() => setLastCutCard(null), 2500);
+	}, 0);
+
+	return () => {
+	  clearTimeout(showTimer);
+	  if (hideTimer) clearTimeout(hideTimer);
+	};
+  }, [gameState?.revealedCards?.length]);
 
   if (!gameState || !socket) return null;
 
@@ -15,18 +42,11 @@ export function GameBoard() {
 
   if (!me) return null;
 
-  // Utilitaire pour le centre de la table
-  const getCardImage = (type: string) => {
-	if (type === 'BOMB') return '/assets/card-bomb.png';
-	if (type === 'DEFUSE') return '/assets/card-defuse.png';
-	return '/assets/card-safe.png';
-  };
-
   return (
 	  <div className="flex flex-col h-screen w-full bg-zinc-950 text-white overflow-hidden landscape:flex-row">
 
-		{/* BARRE LATÉRALE / INFOS */}
-		<div className="flex flex-row landscape:flex-col justify-between items-center bg-zinc-900 p-4 border-b landscape:border-b-0 landscape:border-r border-zinc-800 z-10">
+		{/* HUD : BARRE LATÉRALE / INFOS */}
+		<div className="flex flex-row landscape:flex-col justify-between items-center bg-zinc-900 p-4 border-b landscape:border-b-0 landscape:border-r border-zinc-800 z-10 shadow-lg">
 		  <div className="text-center landscape:mb-8">
 			<p className="text-zinc-500 text-[10px] uppercase tracking-tighter">Manche</p>
 			<p className="text-2xl font-black text-amber-500">{gameState.currentRound}<span className="text-zinc-600 text-lg">/4</span></p>
@@ -50,7 +70,7 @@ export function GameBoard() {
 		{/* ZONE DE JEU PRINCIPALE */}
 		<div className="flex-1 flex flex-col relative overflow-hidden">
 
-		  {/* 1. ADVERSAIRES */}
+		  {/* HAUT : ADVERSAIRES */}
 		  <div className="flex-1 overflow-y-auto p-4 flex flex-wrap justify-center content-start gap-4">
 			{opponents.map((opponent) => (
 				<PlayerHand
@@ -64,8 +84,8 @@ export function GameBoard() {
 			))}
 		  </div>
 
-		  {/* 2. CENTRE DE LA TABLE (Cartes révélées avec de vraies images) */}
-		  <div className="h-32 bg-zinc-900/30 border-y border-zinc-800 flex flex-col items-center justify-center shadow-inner">
+		  {/* MILIEU : CENTRE DE LA TABLE (Cimetière) */}
+		  <div className="h-32 bg-zinc-900/40 border-y border-zinc-800 flex flex-col items-center justify-center shadow-inner">
 			<p className="text-[10px] text-zinc-600 uppercase mb-2 tracking-widest">Câbles coupés</p>
 			<div className="flex gap-2 px-4 overflow-x-auto w-full justify-center">
 			  {gameState.revealedCards.length === 0 && (
@@ -89,7 +109,7 @@ export function GameBoard() {
 			</div>
 		  </div>
 
-		  {/* 3. MA ZONE */}
+		  {/* BAS : MA ZONE */}
 		  <div className="bg-zinc-900/80 p-4 backdrop-blur-md">
 			<PlayerHand
 				player={me}
@@ -101,31 +121,63 @@ export function GameBoard() {
 		  </div>
 		</div>
 
+		{/* --- LES MODALES ET OVERLAYS (QUI SE SUPERPOSENT) --- */}
+
+		{/* 1. OVERLAY DE BLOCAGE (Révélation des rôles et cartes) */}
 		<PhaseOverlay />
 
-		{/* ÉCRAN DE VICTOIRE */}
-		{gameState.status === 'FINISHED' && (
-			<div className="fixed inset-0 bg-black/90 flex flex-col items-center justify-center z-200 backdrop-blur-md animate-in fade-in duration-700">
-			  <div className="relative w-48 h-72 mb-8 rounded-xl overflow-hidden shadow-[0_0_50px_rgba(0,0,0,0.5)]">
+		{/* 2. ANIMATION "GRANDE RÉVÉLATION" QUAND ON COUPE */}
+		{lastCutCard && (
+			<div className="fixed inset-0 z-[150] flex items-center justify-center bg-black/70 backdrop-blur-sm animate-in fade-in duration-200">
+			  <div className="relative w-64 h-96 animate-in zoom-in spin-in-2 duration-500">
 				<Image
-					src={gameState.winner === 'SHERLOCK' ? '/assets/role-sherlock.png' : '/assets/role-moriarty.png'}
-					alt={`Victoire ${gameState.winner}`}
+					src={getCardImage(lastCutCard.type)}
+					alt="Résultat de la coupe"
 					fill
-					className="object-cover"
+					className={`object-contain ${lastCutCard.type === 'BOMB' ? 'drop-shadow-[0_0_50px_rgba(239,68,68,0.8)]' : lastCutCard.type === 'DEFUSE' ? 'drop-shadow-[0_0_50px_rgba(34,197,94,0.8)]' : 'drop-shadow-[0_0_30px_rgba(255,255,255,0.2)]'}`}
 				/>
+				<div className="absolute -bottom-16 left-0 right-0 text-center">
+				  <p className={`text-4xl font-black italic tracking-widest ${lastCutCard.type === 'BOMB' ? 'text-red-500' : lastCutCard.type === 'DEFUSE' ? 'text-green-500' : 'text-zinc-400'}`}>
+					{lastCutCard.type === 'BOMB' ? 'EXPLOSION !' : lastCutCard.type === 'DEFUSE' ? 'DÉSARMÉ !' : 'RIEN...'}
+				  </p>
+				</div>
 			  </div>
-			  <h2 className="text-sm uppercase tracking-[0.3em] mb-2 opacity-70">La partie est terminée</h2>
-			  <h3 className={`text-5xl font-black mb-8 ${gameState.winner === 'SHERLOCK' ? 'text-blue-500' : 'text-red-500'}`}>
-				L'ÉQUIPE {gameState.winner} GAGNE !
-			  </h3>
-			  <button
-				  onClick={() => window.location.reload()}
-				  className="px-8 py-3 bg-white text-black font-black rounded-xl hover:bg-zinc-200 transition-colors"
-			  >
-				RETOURNER AU LOBBY
-			  </button>
 			</div>
 		)}
+
+		{/* 3. ÉCRAN DE FIN DE PARTIE */}
+		{gameState.status === 'FINISHED' && (
+			<div className="fixed inset-0 z-[200] bg-black/95 flex flex-col items-center justify-center backdrop-blur-2xl animate-in fade-in duration-1000">
+			  <div className="relative w-48 h-72 mb-10 overflow-hidden">
+				<Image
+					src={getRoleImage(gameState.winner === 'SHERLOCK' ? 'SHERLOCK' : 'MORIARTY')}
+					alt="Winner"
+					fill
+					className="object-contain"
+				/>
+			  </div>
+
+			  <h3 className="text-4xl font-serif italic text-white mb-12 tracking-widest uppercase">
+				L'ÉQUIPE {gameState.winner} GAGNE
+			  </h3>
+
+			  <div className="flex gap-6">
+				<button
+					onClick={() => socket.emit('restartGame', gameState.roomId)}
+					className="px-10 py-4 bg-zinc-100 text-black font-black rounded-full hover:bg-white transition-transform active:scale-95"
+				>
+				  REJOUER
+				</button>
+				<button
+					onClick={() => window.location.reload()}
+					className="px-10 py-4 border border-zinc-700 text-zinc-400 font-bold rounded-full hover:text-white hover:border-white transition-colors"
+				>
+				  LOBBY
+				</button>
+			  </div>
+			</div>
+		)}
+
 	  </div>
   );
 }

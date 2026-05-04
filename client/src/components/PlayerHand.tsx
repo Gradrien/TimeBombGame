@@ -18,21 +18,21 @@ export function PlayerHand({ player, isMe, hasClippers, iHaveClippers, onCutCard
 		<div className="flex items-center gap-2 mb-4">
 		  <h3 className="font-bold text-lg">{player.name} {isMe && '(Toi)'}</h3>
 		  {hasClippers && <span className="text-2xl animate-bounce" title="A la pince coupante !">✂️</span>}
-		  {isMe && player.role && (
-			  <span className={`text-xs px-2 py-1 rounded font-bold ${player.role === 'SHERLOCK' ? 'bg-blue-600' : 'bg-red-600'}`}>
-            {player.role}
-          </span>
-		  )}
+		  {/*{isMe && player.role && (*/}
+			{/*  <span className={`text-xs px-2 py-1 rounded font-bold ${player.role === 'SHERLOCK' ? 'bg-blue-600' : 'bg-red-600'}`}>*/}
+          {/*  {player.role}*/}
+          {/*</span>*/}
+		  {/*)}*/}
 		</div>
 
-		{isMe && player.secretCards && (
-			<div className="mb-4 flex gap-3 text-sm bg-zinc-900/50 px-3 py-1.5 rounded-lg border border-zinc-700">
-			  <span className="text-zinc-400">Contenu de ton jeu :</span>
-			  <span>🏳️ {player.secretCards.filter(t => t === 'SAFE').length}</span>
-			  <span>✅ {player.secretCards.filter(t => t === 'DEFUSE').length}</span>
-			  <span>💣 {player.secretCards.filter(t => t === 'BOMB').length}</span>
-			</div>
-		)}
+		{/*{isMe && player.secretCards && (*/}
+		{/*	<div className="mb-4 flex gap-3 text-sm bg-zinc-900/50 px-3 py-1.5 rounded-lg border border-zinc-700">*/}
+		{/*	  <span className="text-zinc-400">Contenu de ton jeu :</span>*/}
+		{/*	  <span>🏳️ {player.secretCards.filter(t => t === 'SAFE').length}</span>*/}
+		{/*	  <span>✅ {player.secretCards.filter(t => t === 'DEFUSE').length}</span>*/}
+		{/*	  <span>💣 {player.secretCards.filter(t => t === 'BOMB').length}</span>*/}
+		{/*	</div>*/}
+		{/*)}*/}
 
 		{/* Les Cartes */}
 		<div className="flex flex-wrap justify-center gap-2">
