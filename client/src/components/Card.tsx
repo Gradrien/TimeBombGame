@@ -22,7 +22,7 @@ export function Card({ card, isInteractable, onCut }: CardProps) {
 		  style={{ perspective: '1000px' }}
 	  >
 		<div
-			className="relative w-full h-full transition-transform duration-500"
+			className="relative w-full h-full transition-transform duration-500 rounded-xl"
 			style={{
 			  transformStyle: 'preserve-3d',
 			  transform: card.isRevealed ? 'rotateY(180deg)' : 'rotateY(0deg)'

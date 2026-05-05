@@ -1,9 +1,9 @@
 // client/src/utils/assets.ts
 
-export const getRoleImage = (role?: string) => {
-  if (role === 'MORIARTY') return '/assets/role-moriarty.png';
-  if (role === 'SHERLOCK') return '/assets/role-sherlock.png';
-  return '/assets/role-back.jpg';
+export const getRoleImage = (role?: string, skinIndex: number = 1) => {
+  if (role === 'MORIARTY') return `/assets/role-red-${skinIndex}.png`;
+  if (role === 'SHERLOCK') return `/assets/role-blue-${skinIndex}.png`;
+  return '/assets/role-back.png';
 };
 
 export const getCardImage = (type?: string) => {
@@ -15,5 +15,5 @@ export const getCardImage = (type?: string) => {
 export const ASSETS = {
   CARD_BACK: '/assets/card-back.png',
   ROLE_BACK: '/assets/role-back.png',
-  CLIPPER: '/assets/clipper.png', // Si tu as l'image de la pince
+  CLIPPER: '/assets/clipper.png',
 };
