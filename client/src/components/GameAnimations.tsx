@@ -16,7 +16,9 @@ export function GameAnimations() {
   const prevCount = useRef(gameState?.revealedCards?.length || 0);
 
   useEffect(() => {
-	const currentCount = gameState?.revealedCards?.length || 0;
+	if (!gameState || !gameState.revealedCards) return;
+
+	const currentCount = gameState.revealedCards.length;
 
 	if (currentCount > prevCount.current) {
 	  const newCard = gameState.revealedCards[currentCount - 1];
@@ -46,8 +48,7 @@ export function GameAnimations() {
 
 	// On synchronise le compteur (utile en cas de relance de partie)
 	prevCount.current = currentCount;
-
-	// L'effet ne surveille QUE la taille du cimetière, empêchant les bugs liés aux changements de phases
+	// eslint-disable-next-line react-hooks/exhaustive-deps
   }, [gameState?.revealedCards?.length]);
 
   if (!gameState || !socket) return null;
