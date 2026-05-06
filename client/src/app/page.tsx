@@ -7,7 +7,8 @@ import { GameBoard } from '@/components/GameBoard';
 import { PhaseView } from '@/components/PhaseView';
 import { HomeView } from '@/components/HomeView';
 import { LobbyView } from '@/components/LobbyView';
-import { EndView } from '@/components/EndView'; // NOUVEL IMPORT !
+import { EndView } from '@/components/EndView';
+import { FullScreenToggle } from '@/components/FullScreenToggle';
 
 export default function Home() {
   const { initSocket, gameState, isAnimatingCut, playerName, setPlayerName, joinRoom, startGame } = useGameStore();
@@ -17,30 +18,41 @@ export default function Home() {
     initSocket();
   }, [initSocket]);
 
-  if (!gameState) {
-    return <HomeView playerName={playerName} setPlayerName={setPlayerName} roomIdInput={roomIdInput} setRoomIdInput={setRoomIdInput} onJoin={() => joinRoom(roomIdInput, playerName)} />;
-  }
+  return (
+      <>
+        <FullScreenToggle />
 
-  if (gameState.status === 'LOBBY') {
-    return <LobbyView gameState={gameState} playerName={playerName} onStart={() => startGame(gameState.roomId)} />;
-  }
+        {!gameState && (
+            <HomeView
+                playerName={playerName}
+                setPlayerName={setPlayerName}
+                roomIdInput={roomIdInput}
+                setRoomIdInput={setRoomIdInput}
+                onJoin={() => joinRoom(roomIdInput, playerName)}
+            />
+        )}
 
-  if (gameState.status === 'PLAYING' || gameState.status === 'FINISHED') {
+        {gameState?.status === 'LOBBY' && (
+            <LobbyView
+                gameState={gameState}
+                playerName={playerName}
+                onStart={() => startGame(gameState.roomId)}
+            />
+        )}
 
-    if (isAnimatingCut) {
-      return <GameBoard />;
-    }
-
-    if (gameState.status === 'FINISHED') {
-      return <EndView />;
-    }
-
-    if (gameState.phase === 'ROLE_REVEAL' || gameState.phase === 'CARD_REVEAL') {
-      return <PhaseView />;
-    }
-
-    return <GameBoard />;
-  }
-
-  return null;
+        {(gameState?.status === 'PLAYING' || gameState?.status === 'FINISHED') && (
+            <>
+              {isAnimatingCut ? (
+                  <GameBoard />
+              ) : gameState.status === 'FINISHED' ? (
+                  <EndView />
+              ) : (gameState.phase === 'ROLE_REVEAL' || gameState.phase === 'CARD_REVEAL') ? (
+                  <PhaseView />
+              ) : (
+                  <GameBoard />
+              )}
+            </>
+        )}
+      </>
+  );
 }

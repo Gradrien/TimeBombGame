@@ -7,14 +7,14 @@ import { GamePlayArea } from './GamePlayArea';
 import { GameAnimations } from './GameAnimations';
 
 export function GameBoard() {
-  const { gameState, socket, cutCard } = useGameStore();
+  const { gameState, socket, cutCard, playerId } = useGameStore();
   const [viewedPlayerId, setViewedPlayerId] = useState<string | null>(null);
 
   if (!gameState || !socket) return null;
 
-  const me = gameState.players.find((p) => p.id === socket.id);
-  const opponents = gameState.players.filter((p) => p.id !== socket.id);
-  const iHaveClippers = gameState.playerWithClippers === socket.id;
+  const me = gameState.players.find((p) => p.id === playerId);
+  const opponents = gameState.players.filter((p) => p.id !== playerId);
+  const iHaveClippers = gameState.playerWithClippers === playerId;
 
   if (!me) return null;
 

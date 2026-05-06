@@ -18,8 +18,7 @@ export function GameAnimations() {
   useEffect(() => {
 	const currentCount = gameState?.revealedCards?.length || 0;
 
-	// Si on est en train de jouer ET qu'une NOUVELLE carte vient d'être coupée
-	if (gameState?.phase === 'PLAYING' && currentCount > prevCount.current) {
+	if (currentCount > prevCount.current) {
 	  const newCard = gameState.revealedCards[currentCount - 1];
 	  const isLastCutNext = gameState.cardsRevealedThisRound === gameState.players.length - 1;
 	  const isFinished = gameState.status === 'FINISHED';

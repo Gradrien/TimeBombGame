@@ -3,90 +3,107 @@ import { Server, Socket } from 'socket.io';
 import { GameState } from '@timebomb/shared';
 import { assignRoles, generateInitialDeck, distributeCards, gatherAndShuffleRemainingCards } from './gameEngine';
 
-// Stockage en RAM de toutes les parties en cours
 const activeRooms = new Map<string, GameState>();
 
-// Fonction cruciale : nettoie l'état du jeu pour qu'un joueur ne triche pas
-function sanitizeStateForPlayer(gameState: GameState, targetPlayerId: string): GameState {
-  // On fait une copie profonde (simplifiée) de l'état
-  const sanitized = JSON.parse(JSON.stringify(gameState)) as GameState;
+function generateRoomCode() {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+  let code = '';
+  for (let i = 0; i < 6; i++) code += chars.charAt(Math.floor(Math.random() * chars.length));
+  return code;
+}
 
+function sanitizeStateForPlayer(gameState: GameState, targetPlayerId: string): GameState {
+  const sanitized = JSON.parse(JSON.stringify(gameState)) as GameState;
   sanitized.players = sanitized.players.map(p => {
-	// 1. On donne au joueur ciblé le résumé exact de sa main
 	if (p.id === targetPlayerId) {
 	  p.secretCards = p.cards.filter(c => !c.isRevealed).map(c => c.type);
 	} else {
-	  delete p.role; // On cache le rôle des autres
+	  if (sanitized.status !== 'FINISHED') delete p.role;
 	}
-
-	// 2. On masque le type de TOUTES les cartes non révélées sur le plateau
-	// (Même les miennes ! Comme ça, je ne sais pas à quel emplacement est ma bombe)
-	p.cards = p.cards.map(c =>
-		c.isRevealed ? c : { ...c, type: 'SAFE' }
-	);
-
+	p.cards = p.cards.map(c => c.isRevealed ? c : { ...c, type: 'SAFE' });
 	return p;
   });
-
   return sanitized;
 }
 
-// Fonction utilitaire pour envoyer l'état à jour à tous les joueurs d'une room
 function broadcastGameState(io: Server, roomId: string) {
   const room = activeRooms.get(roomId);
   if (!room) return;
-
-  // On envoie une version personnalisée à chaque joueur
   room.players.forEach(player => {
+	// On utilise maintenant 'socketId' pour envoyer l'état au bon onglet du joueur
 	const safeState = sanitizeStateForPlayer(room, player.id);
-	io.to(player.id).emit('gameStateUpdated', safeState);
+	if (player.socketId) io.to(player.socketId).emit('gameStateUpdated', safeState);
   });
 }
 
 export function setupSocketHandlers(io: Server, socket: Socket) {
 
-  // REJOINDRE OU CRÉER UNE ROOM
-  socket.on('joinRoom', (roomId: string, playerName: string) => {
+  // 1. RECONNEXION SILENCIEUSE
+  socket.on('checkReconnection', (playerId: string) => {
+	for (const [roomId, room] of activeRooms.entries()) {
+	  const player = room.players.find(p => p.id === playerId);
+	  if (player) {
+		player.socketId = socket.id; // On met à jour son onglet actif
+		socket.join(roomId);
+		io.to(socket.id).emit('gameStateUpdated', sanitizeStateForPlayer(room, playerId));
+		broadcastGameState(io, roomId); // Prévient les autres qu'il est de retour
+		return;
+	  }
+	}
+  });
+
+  // 2. LISTER LES LOBBYS OUVERTS
+  socket.on('getOpenRooms', () => {
+	const openRooms = [];
+	for (const [roomId, room] of activeRooms.entries()) {
+	  if (room.status === 'LOBBY') {
+		openRooms.push({ roomId, playerCount: room.players.length });
+	  }
+	}
+	socket.emit('openRoomsList', openRooms);
+  });
+
+  // 3. CRÉER UNE ROOM
+  socket.on('createRoom', (playerName: string, playerId: string) => {
+	const roomId = generateRoomCode();
+	const room: GameState = {
+	  roomId, status: 'LOBBY', players: [], currentRound: 1,
+	  cardsRevealedThisRound: 0, totalDefusesFound: 0, totalDefusesNeeded: 0, playerWithClippers: '',
+	};
+	// isOffline: false n'existe pas dans ton typage de base, on peut l'ignorer ou l'ajouter dans shared
+	room.players.push({ id: playerId, name: playerName, cards: [], isHost: true, socketId: socket.id } as any);
+	activeRooms.set(roomId, room);
 	socket.join(roomId);
-
-	let room = activeRooms.get(roomId);
-	if (!room) {
-	  // Création d'une nouvelle room
-	  room = {
-		roomId,
-		status: 'LOBBY',
-		players: [],
-		currentRound: 1,
-		cardsRevealedThisRound: 0,
-		totalDefusesFound: 0,
-		totalDefusesNeeded: 0,
-		playerWithClippers: '',
-	  };
-	  activeRooms.set(roomId, room);
-	}
-
-	// On évite les doublons si le joueur rafraîchit la page
-	const existingPlayer = room.players.find(p => p.id === socket.id);
-	if (!existingPlayer) {
-	  room.players.push({
-		id: socket.id,
-		name: playerName,
-		cards: [],
-		isHost: room.players.length === 0, // Le premier est l'hôte
-	  });
-	}
-
 	broadcastGameState(io, roomId);
   });
 
-  // LANCER LA PARTIE
+  // 4. REJOINDRE UNE ROOM
+  socket.on('joinRoom', (roomId: string, playerName: string, playerId: string) => {
+	const room = activeRooms.get(roomId);
+	if (!room) return socket.emit('gameError', 'Ce code de Room n\'existe pas');
+
+	// Vérifie si le joueur est déjà dedans (cas d'un refresh violent)
+	const existingPlayer = room.players.find(p => p.id === playerId);
+	if (existingPlayer) {
+	  existingPlayer.socketId = socket.id;
+	  socket.join(roomId);
+	  broadcastGameState(io, roomId);
+	  return;
+	}
+
+	if (room.status !== 'LOBBY') return socket.emit('gameError', 'Partie déjà en cours, lobby fermé');
+	if (room.players.length >= 8) return socket.emit('gameError', 'Room complète (8 joueurs max)');
+
+	room.players.push({ id: playerId, name: playerName, cards: [], isHost: false, socketId: socket.id } as any);
+	socket.join(roomId);
+	broadcastGameState(io, roomId);
+  });
+
+  // 5. LANCER ET JOUER (Même code qu'avant...)
   socket.on('startGame', (roomId: string) => {
 	const room = activeRooms.get(roomId);
 	if (!room || room.status !== 'LOBBY' || room.players.length < 4 || room.players.length > 8) return;
-
-	// Le joueur qui a rejoint en dernier commence avec la pince (règle officielle)
 	const lastPlayer = room.players[room.players.length - 1];
-
 	room.status = 'PLAYING';
 	room.phase = 'ROLE_REVEAL';
 	room.readyPlayers = [];
@@ -95,81 +112,54 @@ export function setupSocketHandlers(io: Server, socket: Socket) {
 	room.totalDefusesNeeded = room.players.length;
 	room.playerWithClippers = lastPlayer.id;
 
-
 	assignRoles(room.players);
 	const deck = generateInitialDeck(room.players.length as any);
 	distributeCards(deck, room.players);
-
 	broadcastGameState(io, roomId);
   });
 
-  // 2. Validation du rôle
-  socket.on('confirmRole', (roomId: string) => {
+  socket.on('confirmRole', (roomId: string) => { /* Ton code actuel */
 	const room = activeRooms.get(roomId);
 	if (!room || room.phase !== 'ROLE_REVEAL') return;
-
-	if (!room.readyPlayers.includes(socket.id)) {
-	  room.readyPlayers.push(socket.id);
-	}
-
-	// Si tout le monde a vu son rôle, on passe à la révélation des cartes
-	if (room.readyPlayers.length === room.players.length) {
-	  room.phase = 'CARD_REVEAL';
-	  room.readyPlayers = [];
-	}
+	const player = room.players.find(p => p.socketId === socket.id);
+	if (player && !room.readyPlayers.includes(player.id)) room.readyPlayers.push(player.id);
+	if (room.readyPlayers.length === room.players.length) { room.phase = 'CARD_REVEAL'; room.readyPlayers = []; }
 	broadcastGameState(io, roomId);
   });
 
-// 3. Validation des cartes du round
-  socket.on('confirmCards', (roomId: string) => {
+  socket.on('confirmCards', (roomId: string) => { /* Ton code actuel */
 	const room = activeRooms.get(roomId);
 	if (!room || room.phase !== 'CARD_REVEAL') return;
-
-	if (!room.readyPlayers.includes(socket.id)) {
-	  room.readyPlayers.push(socket.id);
-	}
-
-	if (room.readyPlayers.length === room.players.length) {
-	  room.phase = 'PLAYING';
-	  room.readyPlayers = [];
-	}
+	const player = room.players.find(p => p.socketId === socket.id);
+	if (player && !room.readyPlayers.includes(player.id)) room.readyPlayers.push(player.id);
+	if (room.readyPlayers.length === room.players.length) { room.phase = 'PLAYING'; room.readyPlayers = []; }
 	broadcastGameState(io, roomId);
   });
 
-  // COUPER UNE CARTE
   socket.on('cutCard', (roomId: string, targetPlayerId: string, cardId: string) => {
 	const room = activeRooms.get(roomId);
-
-	// On vérifie que la partie est en cours ET qu'on n'est pas dans un écran de révélation
 	if (!room || room.status !== 'PLAYING' || room.phase !== 'PLAYING') return;
 
-	// Vérifier que c'est bien le joueur qui a la pince qui joue
-	if (room.playerWithClippers !== socket.id) return;
-
-	// On ne se coupe pas soi-même
-	if (socket.id === targetPlayerId) return;
+	// On récupère le playerId de celui qui a cliqué
+	const me = room.players.find(p => p.socketId === socket.id);
+	if (!me || room.playerWithClippers !== me.id) return;
+	if (me.id === targetPlayerId) return;
 
 	const targetPlayer = room.players.find(p => p.id === targetPlayerId);
 	if (!targetPlayer) return;
 
-	// Trouver l'index de la carte pour pouvoir la retirer du tableau
 	const cardIndex = targetPlayer.cards.findIndex(c => c.id === cardId);
 	if (cardIndex === -1) return;
 
 	const card = targetPlayer.cards[cardIndex]!;
 	if (!card || card.isRevealed) return;
 
-	// L'action est valide, on révèle la carte
 	card.isRevealed = true;
-
-	// On déplace la carte de la main du joueur vers le centre de la table
 	room.revealedCards.push(card);
 	targetPlayer.cards.splice(cardIndex, 1);
-
 	room.cardsRevealedThisRound++;
-	room.playerWithClippers = targetPlayerId; // La pince passe au joueur coupé
+	room.playerWithClippers = targetPlayerId;
 
-	// LOGIQUE DE VICTOIRE / DÉFAITE
 	if (card.type === 'BOMB') {
 	  room.status = 'FINISHED';
 	  room.winner = 'MORIARTY';
@@ -181,63 +171,56 @@ export function setupSocketHandlers(io: Server, socket: Socket) {
 	  }
 	}
 
-	// VÉRIFICATION DE FIN DE MANCHE
 	if (room.status === 'PLAYING' && room.cardsRevealedThisRound === room.players.length) {
 	  if (room.currentRound === 4) {
-		// Fin de la 4ème manche, bombe non explosée mais pas tous les defuses trouvés
 		room.status = 'FINISHED';
 		room.winner = 'MORIARTY';
 	  } else {
-		// On passe à la manche suivante
 		room.currentRound++;
 		room.cardsRevealedThisRound = 0;
-		room.phase = 'CARD_REVEAL'; // Retour à la phase d'attente
-		room.readyPlayers = []; // On réinitialise les validations
-
+		room.phase = 'CARD_REVEAL';
+		room.readyPlayers = [];
 		const newDeck = gatherAndShuffleRemainingCards(room.players);
 		distributeCards(newDeck, room.players);
 	  }
 	}
-
 	broadcastGameState(io, roomId);
   });
 
+  // 6. REJOUER : On remet en mode LOBBY !
   socket.on('restartGame', (roomId: string) => {
 	const room = activeRooms.get(roomId);
 	if (!room) return;
-
-	// Réinitialisation complète
-	room.status = 'PLAYING';
-	room.phase = 'ROLE_REVEAL';
+	room.status = 'LOBBY';
+	room.phase = undefined;
 	room.readyPlayers = [];
 	room.revealedCards = [];
 	room.currentRound = 1;
 	room.cardsRevealedThisRound = 0;
 	room.totalDefusesFound = 0;
 	room.winner = undefined;
-
-	assignRoles(room.players);
-	const deck = generateInitialDeck(room.players.length as any);
-	distributeCards(deck, room.players);
-
+	room.players.forEach(p => { p.cards = []; p.secretCards = []; p.role = undefined; });
 	broadcastGameState(io, roomId);
   });
 
-  // GESTION DE LA DÉCONNEXION
+  // 7. DÉCONNEXION
   socket.on('disconnect', () => {
-	// Pour simplifier, on cherche le joueur dans toutes les rooms actives
 	for (const [roomId, room] of activeRooms.entries()) {
-	  const playerIndex = room.players.findIndex(p => p.id === socket.id);
+	  const playerIndex = room.players.findIndex(p => (p as any).socketId === socket.id);
 	  if (playerIndex !== -1) {
-		// En prod, il faudrait gérer la reconnexion avec un token.
-		// Ici on le retire de la room.
-		room.players.splice(playerIndex, 1);
-
-		// S'il n'y a plus personne, on détruit la room
-		if (room.players.length === 0) {
-		  activeRooms.delete(roomId);
+		if (room.status === 'LOBBY') {
+		  // S'ils sont dans le lobby, on les supprime vraiment
+		  room.players.splice(playerIndex, 1);
+		  if (room.players.length === 0) {
+			activeRooms.delete(roomId);
+		  } else {
+			// Si l'hôte part, on donne le lead au suivant
+			if (!room.players.some(p => p.isHost)) room.players[0].isHost = true;
+			broadcastGameState(io, roomId);
+		  }
 		} else {
-		  broadcastGameState(io, roomId);
+		  // En pleine partie, on ne fait rien pour ne pas casser le jeu !
+		  // Le joueur pourra revenir grâce à la reconnexion automatique.
 		}
 		break;
 	  }

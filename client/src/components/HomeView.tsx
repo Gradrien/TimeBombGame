@@ -1,38 +1,122 @@
 // client/src/components/HomeView.tsx
-interface Props {
-  playerName: string;
-  setPlayerName: (name: string) => void;
-  roomIdInput: string;
-  setRoomIdInput: (id: string) => void;
-  onJoin: () => void;
-}
+import { useState, useEffect } from 'react';
+import { useGameStore } from '@/store/useGameStore';
 
-export function HomeView({ playerName, setPlayerName, roomIdInput, setRoomIdInput, onJoin }: Props) {
+export function HomeView() {
+  const { playerName, setPlayerName, createRoom, joinRoom, fetchOpenRooms, openRooms, error, clearError } = useGameStore();
+  const [view, setView] = useState<'MAIN' | 'CREATE' | 'JOIN'>('MAIN');
+  const [roomCode, setRoomCode] = useState('');
+
+  // Quand on ouvre la vue JOIN, on demande au serveur les lobbys disponibles
+  useEffect(() => {
+	if (view === 'JOIN') fetchOpenRooms();
+  }, [view, fetchOpenRooms]);
+
   return (
 	  <main className="flex min-h-screen flex-col items-center justify-center bg-black/40 text-white p-4">
-		<h1 className="text-5xl font-black mb-12 text-zinc-100 tracking-widest drop-shadow-lg uppercase">Time Bomb</h1>
-		<div className="flex flex-col gap-6 w-full max-w-xs">
-		  <input
-			  type="text"
-			  placeholder="Ton pseudo"
-			  className="p-3 rounded-lg bg-zinc-900/80 border border-zinc-600 focus:outline-none focus:border-zinc-300 transition-colors"
-			  value={playerName}
-			  onChange={(e) => setPlayerName(e.target.value)}
-		  />
-		  <input
-			  type="text"
-			  placeholder="Code de la room"
-			  className="p-3 rounded-lg bg-zinc-900/80 border border-zinc-600 focus:outline-none focus:border-zinc-300 transition-colors uppercase"
-			  value={roomIdInput}
-			  onChange={(e) => setRoomIdInput(e.target.value.toUpperCase())}
-		  />
-		  <button
-			  onClick={onJoin}
-			  disabled={!playerName || !roomIdInput}
-			  className="bg-zinc-100 hover:bg-white text-black p-3 rounded-lg font-bold disabled:opacity-50 shadow-lg transition-transform active:scale-95 uppercase tracking-widest text-sm mt-2"
-		  >
-			Rejoindre / Créer
-		  </button>
+		<h1 className="text-5xl font-black mb-12 text-zinc-100 tracking-widest drop-shadow-lg uppercase text-center">
+		  Time Bomb
+		</h1>
+
+		<div className="flex flex-col gap-4 w-full max-w-sm bg-zinc-950/60 p-6 rounded-2xl border border-amber-900/30 shadow-2xl backdrop-blur-sm">
+
+		  {error && (
+			  <div className="bg-red-900/50 border border-red-500 text-red-200 px-4 py-3 rounded-lg text-sm text-center font-bold">
+				{error}
+			  </div>
+		  )}
+
+		  {/* VUE PRINCIPALE */}
+		  {view === 'MAIN' && (
+			  <>
+				<button onClick={() => { clearError(); setView('CREATE'); }} className="bg-amber-600 hover:bg-amber-500 text-black p-4 rounded-xl font-bold transition-transform active:scale-95 uppercase tracking-widest text-sm shadow-lg">
+				  Créer une Room
+				</button>
+				<button onClick={() => { clearError(); setView('JOIN'); }} className="bg-zinc-800 hover:bg-zinc-700 border border-zinc-600 text-zinc-100 p-4 rounded-xl font-bold transition-transform active:scale-95 uppercase tracking-widest text-sm shadow-lg mt-2">
+				  Rejoindre une Room
+				</button>
+			  </>
+		  )}
+
+		  {/* VUE CRÉATION */}
+		  {view === 'CREATE' && (
+			  <>
+				<input
+					type="text"
+					placeholder="Ton pseudo"
+					maxLength={12}
+					className="p-3 rounded-lg bg-black/50 border border-zinc-600 focus:outline-none focus:border-amber-500 transition-colors"
+					value={playerName}
+					onChange={(e) => setPlayerName(e.target.value)}
+				/>
+				<button
+					onClick={() => createRoom(playerName)}
+					disabled={!playerName}
+					className="bg-amber-600 hover:bg-amber-500 text-black p-3 rounded-lg font-bold disabled:opacity-50 shadow-lg mt-4 uppercase"
+				>
+				  Créer le Lobby
+				</button>
+				<button onClick={() => setView('MAIN')} className="text-zinc-400 text-sm hover:text-white mt-2">Retour</button>
+			  </>
+		  )}
+
+		  {/* VUE REJOINDRE */}
+		  {view === 'JOIN' && (
+			  <>
+				<input
+					type="text"
+					placeholder="Ton pseudo"
+					maxLength={12}
+					className="p-3 rounded-lg bg-black/50 border border-zinc-600 focus:outline-none focus:border-amber-500 transition-colors mb-4"
+					value={playerName}
+					onChange={(e) => setPlayerName(e.target.value)}
+				/>
+
+				{/* Liste des Rooms */}
+				{openRooms.length > 0 ? (
+					<div className="flex flex-col gap-2 mb-4 max-h-40 overflow-y-auto pr-2 no-scrollbar">
+					  {openRooms.map((r) => (
+						  <button
+							  key={r.roomId}
+							  onClick={() => playerName ? joinRoom(r.roomId, playerName) : alert("Entre un pseudo d'abord !")}
+							  className="flex justify-between items-center p-3 bg-zinc-900 border border-zinc-700 rounded-lg hover:border-amber-500 hover:bg-zinc-800 transition-colors text-left"
+						  >
+							<span className="font-mono text-amber-500 font-bold">{r.roomId}</span>
+							<span className="text-xs text-zinc-400">{r.playerCount}/8 Joueurs</span>
+						  </button>
+					  ))}
+					</div>
+				) : (
+					<p className="text-center text-zinc-500 text-sm mb-4 italic">Aucune room ouverte en ce moment</p>
+				)}
+
+				<div className="relative flex items-center mb-2">
+				  <div className="flex-grow border-t border-zinc-700"></div>
+				  <span className="flex-shrink-0 mx-4 text-zinc-500 text-xs uppercase">Ou code privé</span>
+				  <div className="flex-grow border-t border-zinc-700"></div>
+				</div>
+
+				<div className="flex gap-2">
+				  <input
+					  type="text"
+					  placeholder="Ex: ABCDEF"
+					  maxLength={6}
+					  className="p-3 rounded-lg bg-black/50 border border-zinc-600 focus:outline-none focus:border-amber-500 uppercase font-mono w-full text-center"
+					  value={roomCode}
+					  onChange={(e) => setRoomCode(e.target.value.toUpperCase())}
+				  />
+				  <button
+					  onClick={() => joinRoom(roomCode, playerName)}
+					  disabled={!playerName || roomCode.length !== 6}
+					  className="bg-amber-600 hover:bg-amber-500 text-black px-4 rounded-lg font-bold disabled:opacity-50 uppercase text-sm"
+				  >
+					Go
+				  </button>
+				</div>
+				<button onClick={() => setView('MAIN')} className="text-zinc-400 text-sm hover:text-white mt-4">Retour</button>
+			  </>
+		  )}
+
 		</div>
 	  </main>
   );
