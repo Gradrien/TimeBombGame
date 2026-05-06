@@ -1,7 +1,7 @@
 // client/src/app/page.tsx
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { useGameStore } from '@/store/useGameStore';
 import { GameBoard } from '@/components/GameBoard';
 import { PhaseView } from '@/components/PhaseView';
@@ -11,8 +11,7 @@ import { EndView } from '@/components/EndView';
 import { FullScreenToggle } from '@/components/FullScreenToggle';
 
 export default function Home() {
-  const { initSocket, gameState, isAnimatingCut, playerName, setPlayerName, joinRoom, startGame } = useGameStore();
-  const [roomIdInput, setRoomIdInput] = useState('');
+  const { initSocket, gameState, isAnimatingCut, playerName, startGame } = useGameStore();
 
   useEffect(() => {
     initSocket();
@@ -23,13 +22,7 @@ export default function Home() {
         <FullScreenToggle />
 
         {!gameState && (
-            <HomeView
-                playerName={playerName}
-                setPlayerName={setPlayerName}
-                roomIdInput={roomIdInput}
-                setRoomIdInput={setRoomIdInput}
-                onJoin={() => joinRoom(roomIdInput, playerName)}
-            />
+            <HomeView />
         )}
 
         {gameState?.status === 'LOBBY' && (
