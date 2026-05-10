@@ -1,7 +1,7 @@
 // client/src/store/useGameStore.ts
-import { create } from 'zustand';
-import { io, Socket } from 'socket.io-client';
-import type { GameState } from '../../../shared';
+import {create} from 'zustand';
+import {io, Socket} from 'socket.io-client';
+import type {GameState} from '../../../shared';
 
 const SOCKET_URL = process.env.NEXT_PUBLIC_SOCKET_URL || 'http://localhost:3001';
 
@@ -25,10 +25,17 @@ interface GameStore {
   socket: Socket | null;
   gameState: GameState | null;
   playerName: string;
-  playerId: string; // NOUVEAU : Identifiant persistant
+  playerId: string;
   isAnimatingCut: boolean;
-  openRooms: RoomInfo[]; // NOUVEAU : Liste des lobbys
-  error: string | null; // NOUVEAU : Gestion des erreurs
+  openRooms: RoomInfo[];
+  error: string | null;
+
+  loupeAnimation: { success: boolean, targetName: string } | null;
+  isScannerActive: boolean; // Le mode scanner devient global
+  setScannerActive: (active: boolean) => void;
+  toggleLoupeMode: (roomId: string, enabled: boolean) => void;
+  useLoupe: (roomId: string, targetPlayerId: string, cardId: string) => void;
+
   setPlayerName: (name: string) => void;
   clearError: () => void;
   initSocket: () => void;
@@ -48,8 +55,12 @@ export const useGameStore = create<GameStore>((set, get) => ({
   openRooms: [],
   error: null,
 
-  setPlayerName: (name) => set({ playerName: name }),
-  clearError: () => set({ error: null }),
+  loupeAnimation: null,
+  isScannerActive: false,
+  setScannerActive: (active) => set({ isScannerActive: active }),
+
+  setPlayerName: (name) => set({playerName: name}),
+  clearError: () => set({error: null}),
 
   initSocket: () => {
 	if (get().socket) return;
@@ -58,18 +69,23 @@ export const useGameStore = create<GameStore>((set, get) => ({
 	socket.on('gameStateUpdated', (newState: GameState) => {
 	  const currentState = get().gameState;
 	  if (currentState && newState.revealedCards && currentState.revealedCards && newState.revealedCards.length > currentState.revealedCards.length) {
-		set({ isAnimatingCut: true });
-		setTimeout(() => set({ isAnimatingCut: false }), 2500);
+		set({isAnimatingCut: true});
+		setTimeout(() => set({isAnimatingCut: false}), 2500);
 	  }
-	  set({ gameState: newState, error: null });
+	  set({gameState: newState, error: null});
 	});
 
 	socket.on('openRoomsList', (rooms: RoomInfo[]) => {
-	  set({ openRooms: rooms });
+	  set({openRooms: rooms});
 	});
 
 	socket.on('gameError', (msg: string) => {
-	  set({ error: msg });
+	  set({error: msg});
+	});
+
+	socket.on('loupeResult', (result: { success: boolean, targetName: string }) => {
+	  set({ loupeAnimation: result, isScannerActive: false });
+	  setTimeout(() => set({ loupeAnimation: null }), 3000);
 	});
 
 	// AUTO-RECONNEXION : Au démarrage, on demande au serveur si on est déjà dans une partie
@@ -77,31 +93,42 @@ export const useGameStore = create<GameStore>((set, get) => ({
 	  socket.emit('checkReconnection', get().playerId);
 	});
 
-	set({ socket });
+	set({socket});
   },
 
   createRoom: (name) => {
-	const { socket, playerId } = get();
+	const {socket, playerId} = get();
 	if (socket) socket.emit('createRoom', name, playerId);
   },
 
   joinRoom: (roomId, name) => {
-	const { socket, playerId } = get();
+	const {socket, playerId} = get();
 	if (socket) socket.emit('joinRoom', roomId, name, playerId);
   },
 
   fetchOpenRooms: () => {
-	const { socket } = get();
+	const {socket} = get();
 	if (socket) socket.emit('getOpenRooms');
   },
 
   startGame: (roomId) => {
-	const { socket } = get();
+	const {socket} = get();
 	if (socket) socket.emit('startGame', roomId);
   },
 
   cutCard: (roomId, targetPlayerId, cardId) => {
-	const { socket } = get();
+	const {socket} = get();
 	if (socket) socket.emit('cutCard', roomId, targetPlayerId, cardId);
+  },
+
+  toggleLoupeMode: (roomId, enabled) => {
+	const { socket } = get();
+	if (socket) socket.emit('toggleLoupeMode', roomId, enabled);
+  },
+
+  useLoupe: (roomId, targetPlayerId, cardId) => {
+	const { socket } = get();
+	if (socket) socket.emit('useLoupe', roomId, targetPlayerId, cardId);
+	set({ isScannerActive: false });
   }
 }));

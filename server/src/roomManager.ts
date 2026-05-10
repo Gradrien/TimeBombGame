@@ -1,7 +1,7 @@
 // server/src/roomManager.ts
-import { Server, Socket } from 'socket.io';
-import { GameState } from '@timebomb/shared';
-import { assignRoles, generateInitialDeck, distributeCards, gatherAndShuffleRemainingCards } from './gameEngine';
+import {Server, Socket} from 'socket.io';
+import {GameState, ValidPlayerCount} from '@timebomb/shared';
+import {assignRoles, generateInitialDeck, distributeCards, gatherAndShuffleRemainingCards} from './gameEngine';
 
 const activeRooms = new Map<string, GameState>();
 
@@ -20,7 +20,9 @@ function sanitizeStateForPlayer(gameState: GameState, targetPlayerId: string): G
 	} else {
 	  if (sanitized.status !== 'FINISHED') delete p.role;
 	}
-	p.cards = p.cards.map(c => c.isRevealed ? c : { ...c, type: 'SAFE' });
+
+	// CORRECTION LOUPE : On masque le type sauf si la carte est révélée (coupée) OU publique (scannée)
+	p.cards = p.cards.map(c => (c.isRevealed || c.isPublic) ? c : {...c, type: 'SAFE'});
 	return p;
   });
   return sanitized;
@@ -30,7 +32,6 @@ function broadcastGameState(io: Server, roomId: string) {
   const room = activeRooms.get(roomId);
   if (!room) return;
   room.players.forEach(player => {
-	// On utilise maintenant 'socketId' pour envoyer l'état au bon onglet du joueur
 	const safeState = sanitizeStateForPlayer(room, player.id);
 	if (player.socketId) io.to(player.socketId).emit('gameStateUpdated', safeState);
   });
@@ -38,51 +39,68 @@ function broadcastGameState(io: Server, roomId: string) {
 
 export function setupSocketHandlers(io: Server, socket: Socket) {
 
-  // 1. RECONNEXION SILENCIEUSE
   socket.on('checkReconnection', (playerId: string) => {
 	for (const [roomId, room] of activeRooms.entries()) {
 	  const player = room.players.find(p => p.id === playerId);
 	  if (player) {
-		player.socketId = socket.id; // On met à jour son onglet actif
+		player.socketId = socket.id;
 		socket.join(roomId);
 		io.to(socket.id).emit('gameStateUpdated', sanitizeStateForPlayer(room, playerId));
-		broadcastGameState(io, roomId); // Prévient les autres qu'il est de retour
+		broadcastGameState(io, roomId);
 		return;
 	  }
 	}
   });
 
-  // 2. LISTER LES LOBBYS OUVERTS
   socket.on('getOpenRooms', () => {
 	const openRooms = [];
 	for (const [roomId, room] of activeRooms.entries()) {
 	  if (room.status === 'LOBBY') {
-		openRooms.push({ roomId, playerCount: room.players.length });
+		openRooms.push({roomId, playerCount: room.players.length});
 	  }
 	}
 	socket.emit('openRoomsList', openRooms);
   });
 
-  // 3. CRÉER UNE ROOM
   socket.on('createRoom', (playerName: string, playerId: string) => {
 	const roomId = generateRoomCode();
 	const room: GameState = {
-	  roomId, status: 'LOBBY', players: [], currentRound: 1,
-	  cardsRevealedThisRound: 0, totalDefusesFound: 0, totalDefusesNeeded: 0, playerWithClippers: '',
+	  roomId,
+	  phase: 'NOT_STARTED',
+	  status: 'LOBBY',
+	  players: [],
+	  currentRound: 1,
+	  cardsRevealedThisRound: 0,
+	  totalDefusesFound: 0,
+	  totalDefusesNeeded: 0,
+	  playerWithClippers: '',
+	  isLoupeModeEnabled: false,
+	  teamHasLoupe: false,
+	  revealedCards: [],
+	  readyPlayers: []
 	};
-	// isOffline: false n'existe pas dans ton typage de base, on peut l'ignorer ou l'ajouter dans shared
-	room.players.push({ id: playerId, name: playerName, cards: [], isHost: true, socketId: socket.id } as any);
+
+	room.players.push({id: playerId, name: playerName, cards: [], isHost: true, socketId: socket.id});
 	activeRooms.set(roomId, room);
 	socket.join(roomId);
 	broadcastGameState(io, roomId);
   });
 
-  // 4. REJOINDRE UNE ROOM
+  socket.on('toggleLoupeMode', (roomId: string, enabled: boolean) => {
+	const room = activeRooms.get(roomId);
+	if (room && room.status === 'LOBBY') {
+	  const me = room.players.find(p => p.socketId === socket.id);
+	  if (me && me.isHost) {
+		room.isLoupeModeEnabled = enabled;
+		broadcastGameState(io, roomId);
+	  }
+	}
+  });
+
   socket.on('joinRoom', (roomId: string, playerName: string, playerId: string) => {
 	const room = activeRooms.get(roomId);
 	if (!room) return socket.emit('gameError', 'Ce code de Room n\'existe pas');
 
-	// Vérifie si le joueur est déjà dedans (cas d'un refresh violent)
 	const existingPlayer = room.players.find(p => p.id === playerId);
 	if (existingPlayer) {
 	  existingPlayer.socketId = socket.id;
@@ -94,45 +112,52 @@ export function setupSocketHandlers(io: Server, socket: Socket) {
 	if (room.status !== 'LOBBY') return socket.emit('gameError', 'Partie déjà en cours, lobby fermé');
 	if (room.players.length >= 8) return socket.emit('gameError', 'Room complète (8 joueurs max)');
 
-	room.players.push({ id: playerId, name: playerName, cards: [], isHost: false, socketId: socket.id } as any);
+	room.players.push({id: playerId, name: playerName, cards: [], isHost: false, socketId: socket.id} as any);
 	socket.join(roomId);
 	broadcastGameState(io, roomId);
   });
 
-  // 5. LANCER ET JOUER (Même code qu'avant...)
   socket.on('startGame', (roomId: string) => {
 	const room = activeRooms.get(roomId);
 	if (!room || room.status !== 'LOBBY' || room.players.length < 4 || room.players.length > 8) return;
-	const lastPlayer = room.players[room.players.length - 1];
+	const randomIndex = Math.floor(Math.random() * room.players.length);
+
 	room.status = 'PLAYING';
 	room.phase = 'ROLE_REVEAL';
 	room.readyPlayers = [];
 	room.revealedCards = [];
 	room.totalDefusesFound = 0;
 	room.totalDefusesNeeded = room.players.length;
-	room.playerWithClippers = lastPlayer.id;
+	room.playerWithClippers = room.players[randomIndex].id;
+	room.teamHasLoupe = false; // Reset du joker
 
-	assignRoles(room.players);
-	const deck = generateInitialDeck(room.players.length as any);
+	assignRoles(room.players, room.isLoupeModeEnabled);
+	const deck = generateInitialDeck(room.players.length as ValidPlayerCount, room.isLoupeModeEnabled);
 	distributeCards(deck, room.players);
 	broadcastGameState(io, roomId);
   });
 
-  socket.on('confirmRole', (roomId: string) => { /* Ton code actuel */
+  socket.on('confirmRole', (roomId: string) => {
 	const room = activeRooms.get(roomId);
 	if (!room || room.phase !== 'ROLE_REVEAL') return;
 	const player = room.players.find(p => p.socketId === socket.id);
 	if (player && !room.readyPlayers.includes(player.id)) room.readyPlayers.push(player.id);
-	if (room.readyPlayers.length === room.players.length) { room.phase = 'CARD_REVEAL'; room.readyPlayers = []; }
+	if (room.readyPlayers.length === room.players.length) {
+	  room.phase = 'CARD_REVEAL';
+	  room.readyPlayers = [];
+	}
 	broadcastGameState(io, roomId);
   });
 
-  socket.on('confirmCards', (roomId: string) => { /* Ton code actuel */
+  socket.on('confirmCards', (roomId: string) => {
 	const room = activeRooms.get(roomId);
 	if (!room || room.phase !== 'CARD_REVEAL') return;
 	const player = room.players.find(p => p.socketId === socket.id);
 	if (player && !room.readyPlayers.includes(player.id)) room.readyPlayers.push(player.id);
-	if (room.readyPlayers.length === room.players.length) { room.phase = 'PLAYING'; room.readyPlayers = []; }
+	if (room.readyPlayers.length === room.players.length) {
+	  room.phase = 'PLAYING';
+	  room.readyPlayers = [];
+	}
 	broadcastGameState(io, roomId);
   });
 
@@ -140,7 +165,6 @@ export function setupSocketHandlers(io: Server, socket: Socket) {
 	const room = activeRooms.get(roomId);
 	if (!room || room.status !== 'PLAYING' || room.phase !== 'PLAYING') return;
 
-	// On récupère le playerId de celui qui a cliqué
 	const me = room.players.find(p => p.socketId === socket.id);
 	if (!me || room.playerWithClippers !== me.id) return;
 	if (me.id === targetPlayerId) return;
@@ -169,6 +193,8 @@ export function setupSocketHandlers(io: Server, socket: Socket) {
 		room.status = 'FINISHED';
 		room.winner = 'SHERLOCK';
 	  }
+	} else if (card.type === 'LOUPE') {
+	  room.teamHasLoupe = true;
 	}
 
 	if (room.status === 'PLAYING' && room.cardsRevealedThisRound === room.players.length) {
@@ -187,23 +213,68 @@ export function setupSocketHandlers(io: Server, socket: Socket) {
 	broadcastGameState(io, roomId);
   });
 
-  // 6. REJOUER : On remet en mode LOBBY !
+  socket.on('useLoupe', (roomId: string, targetPlayerId: string, cardId: string) => {
+	const room = activeRooms.get(roomId);
+	if (!room || room.status !== 'PLAYING' || !room.teamHasLoupe) return;
+
+	// Règle 1 : Inutilisable au dernier round (Manche 4)
+	if (room.currentRound >= 4) return;
+
+	const targetPlayer = room.players.find(p => p.id === targetPlayerId);
+	if (!targetPlayer) return;
+
+	// Règle 2 : Inutilisable sur un joueur avec une seule carte cachée
+	const hiddenCards = targetPlayer.cards.filter(c => !c.isRevealed && !c.isPublic);
+	if (hiddenCards.length <= 1) return;
+
+	const card = targetPlayer.cards.find(c => c.id === cardId);
+	if (!card || card.isRevealed || card.isPublic) return;
+
+	// On consomme le joker
+	room.teamHasLoupe = false;
+
+	let isSuccess = false;
+
+	if (targetPlayer.role === 'BROUILLEUR') {
+	  // Le pouvoir passif du Brouilleur s'active : échec garanti !
+	  isSuccess = false;
+	} else {
+	  // Calcul normal : 100% Round 1, 80% Round 2, 60% Round 3
+	  const successChance = 1 - ((room.currentRound - 1) * 0.2);
+	  isSuccess = Math.random() <= successChance;
+	}
+
+	if (isSuccess) {
+	  card.isPublic = true;
+	  io.to(roomId).emit('loupeResult', {success: true, targetName: targetPlayer.name});
+	} else {
+	  io.to(roomId).emit('loupeResult', {success: false, targetName: targetPlayer.name});
+	}
+
+	broadcastGameState(io, roomId);
+  });
+
   socket.on('restartGame', (roomId: string) => {
 	const room = activeRooms.get(roomId);
 	if (!room) return;
 	room.status = 'LOBBY';
-	room.phase = undefined;
+	room.phase = "NOT_STARTED";
 	room.readyPlayers = [];
 	room.revealedCards = [];
 	room.currentRound = 1;
 	room.cardsRevealedThisRound = 0;
 	room.totalDefusesFound = 0;
-	room.winner = undefined;
-	room.players.forEach(p => { p.cards = []; p.secretCards = []; p.role = undefined; });
+	room.teamHasLoupe = false;
+
+	room.players.forEach(p => {
+	  p.cards = [];
+	  p.secretCards = [];
+	  delete p.role;
+	});
+
 	broadcastGameState(io, roomId);
   });
 
-  // 7. DÉCONNEXION
   socket.on('disconnect', () => {
 	for (const [roomId, room] of activeRooms.entries()) {
 	  const playerIndex = room.players.findIndex(p => (p as any).socketId === socket.id);
@@ -218,9 +289,6 @@ export function setupSocketHandlers(io: Server, socket: Socket) {
 			if (!room.players.some(p => p.isHost)) room.players[0].isHost = true;
 			broadcastGameState(io, roomId);
 		  }
-		} else {
-		  // En pleine partie, on ne fait rien pour ne pas casser le jeu !
-		  // Le joueur pourra revenir grâce à la reconnexion automatique.
 		}
 		break;
 	  }

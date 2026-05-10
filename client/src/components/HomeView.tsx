@@ -1,11 +1,19 @@
 // client/src/components/HomeView.tsx
-import { useState, useEffect } from 'react';
-import { useGameStore } from '@/store/useGameStore';
+import {useState, useEffect} from 'react';
+import {useGameStore} from '@/store/useGameStore';
 
 export function HomeView() {
-  const { playerName, setPlayerName, createRoom, joinRoom, fetchOpenRooms, openRooms, error, clearError } = useGameStore();
+  const {
+	playerName,
+	setPlayerName,
+	createRoom,
+	joinRoom,
+	fetchOpenRooms,
+	openRooms,
+	error,
+	clearError
+  } = useGameStore();
   const [view, setView] = useState<'MAIN' | 'CREATE' | 'JOIN'>('MAIN');
-  const [roomCode, setRoomCode] = useState('');
 
   // Quand on ouvre la vue JOIN, on demande au serveur les lobbys disponibles
   useEffect(() => {
@@ -18,10 +26,12 @@ export function HomeView() {
 		  Time Bomb
 		</h1>
 
-		<div className="flex flex-col gap-4 w-full max-w-sm bg-zinc-950/60 p-6 rounded-2xl border border-amber-900/30 shadow-2xl backdrop-blur-sm">
+		<div
+			className="flex flex-col gap-4 w-full max-w-sm bg-zinc-950/60 p-6 rounded-2xl border border-amber-900/30 shadow-2xl backdrop-blur-sm">
 
 		  {error && (
-			  <div className="bg-red-900/50 border border-red-500 text-red-200 px-4 py-3 rounded-lg text-sm text-center font-bold">
+			  <div
+				  className="bg-red-900/50 border border-red-500 text-red-200 px-4 py-3 rounded-lg text-sm text-center font-bold">
 				{error}
 			  </div>
 		  )}
@@ -29,10 +39,18 @@ export function HomeView() {
 		  {/* VUE PRINCIPALE */}
 		  {view === 'MAIN' && (
 			  <>
-				<button onClick={() => { clearError(); setView('CREATE'); }} className="bg-amber-600 hover:bg-amber-500 text-black p-4 rounded-xl font-bold transition-transform active:scale-95 uppercase tracking-widest text-sm shadow-lg">
+				<button onClick={() => {
+				  clearError();
+				  setView('CREATE');
+				}}
+						className="bg-amber-600 hover:bg-amber-500 text-black p-4 rounded-xl font-bold transition-transform active:scale-95 uppercase tracking-widest text-sm shadow-lg">
 				  Créer une Room
 				</button>
-				<button onClick={() => { clearError(); setView('JOIN'); }} className="bg-zinc-800 hover:bg-zinc-700 border border-zinc-600 text-zinc-100 p-4 rounded-xl font-bold transition-transform active:scale-95 uppercase tracking-widest text-sm shadow-lg mt-2">
+				<button onClick={() => {
+				  clearError();
+				  setView('JOIN');
+				}}
+						className="bg-zinc-800 hover:bg-zinc-700 border border-zinc-600 text-zinc-100 p-4 rounded-xl font-bold transition-transform active:scale-95 uppercase tracking-widest text-sm shadow-lg mt-2">
 				  Rejoindre une Room
 				</button>
 			  </>
@@ -56,7 +74,8 @@ export function HomeView() {
 				>
 				  Créer le Lobby
 				</button>
-				<button onClick={() => setView('MAIN')} className="text-zinc-400 text-sm hover:text-white mt-2">Retour</button>
+				<button onClick={() => setView('MAIN')} className="text-zinc-400 text-sm hover:text-white mt-2">Retour
+				</button>
 			  </>
 		  )}
 
@@ -89,31 +108,8 @@ export function HomeView() {
 				) : (
 					<p className="text-center text-zinc-500 text-sm mb-4 italic">Aucune room ouverte en ce moment</p>
 				)}
-
-				<div className="relative flex items-center mb-2">
-				  <div className="flex-grow border-t border-zinc-700"></div>
-				  <span className="flex-shrink-0 mx-4 text-zinc-500 text-xs uppercase">Ou code privé</span>
-				  <div className="flex-grow border-t border-zinc-700"></div>
-				</div>
-
-				<div className="flex gap-2">
-				  <input
-					  type="text"
-					  placeholder="Ex: ABCDEF"
-					  maxLength={6}
-					  className="p-3 rounded-lg bg-black/50 border border-zinc-600 focus:outline-none focus:border-amber-500 uppercase font-mono w-full text-center"
-					  value={roomCode}
-					  onChange={(e) => setRoomCode(e.target.value.toUpperCase())}
-				  />
-				  <button
-					  onClick={() => joinRoom(roomCode, playerName)}
-					  disabled={!playerName || roomCode.length !== 6}
-					  className="bg-amber-600 hover:bg-amber-500 text-black px-4 rounded-lg font-bold disabled:opacity-50 uppercase text-sm"
-				  >
-					Go
-				  </button>
-				</div>
-				<button onClick={() => setView('MAIN')} className="text-zinc-400 text-sm hover:text-white mt-4">Retour</button>
+				<button onClick={() => setView('MAIN')} className="text-zinc-400 text-sm hover:text-white mt-4">Retour
+				</button>
 			  </>
 		  )}
 

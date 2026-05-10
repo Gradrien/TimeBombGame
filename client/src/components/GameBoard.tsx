@@ -36,7 +36,6 @@ export function GameBoard() {
 
 		<GameStatsBar
 			currentRound={gameState.currentRound}
-			cardsRevealed={gameState.cardsRevealedThisRound}
 			totalPlayers={gameState.players.length}
 			defusesFound={gameState.totalDefusesFound}
 			defusesNeeded={gameState.totalDefusesNeeded}
@@ -49,6 +48,7 @@ export function GameBoard() {
 			iHaveClippers={iHaveClippers}
 			playerWithClippers={gameState.playerWithClippers}
 			handleCutCard={handleCutCard}
+			players={gameState.players}
 		/>
 
 		<GameAnimations />
