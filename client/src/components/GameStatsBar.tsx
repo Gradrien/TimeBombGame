@@ -1,42 +1,87 @@
 // client/src/components/GameStatsBar.tsx
 import Image from 'next/image';
-import { Card as CardType } from '@timebomb/shared';
-import { getCardImage } from '@/utils/assets';
+import {Card as CardType} from '@timebomb/shared';
+import {getCardImage, getRoleImage} from '@/utils/assets';
+import {useGameStore} from '@/store/useGameStore';
 
 interface Props {
   currentRound: number;
-  cardsRevealed: number;
   totalPlayers: number;
   defusesFound: number;
   defusesNeeded: number;
   revealedCards: CardType[];
 }
 
-export function GameStatsBar({ currentRound, cardsRevealed, totalPlayers, defusesFound, defusesNeeded, revealedCards }: Props) {
-  return (
-	  <div className="flex items-center justify-between px-6 py-2 bg-gradient-to-b from-black/40 to-transparent border-b border-amber-900/20 shrink-0 h-24">
+export function GameStatsBar({
+							   currentRound,
+							   totalPlayers,
+							   defusesFound,
+							   defusesNeeded,
+							   revealedCards
+							 }: Props) {
+  const {gameState, isScannerActive, setScannerActive} = useGameStore();
 
-		{/* HUD Stats */}
+  // Logique de distribution des rôles (Standard Time Bomb)
+  const getRoleDistribution = () => {
+	switch (totalPlayers) {
+	  case 4:
+		return {blue: "2-3", red: "1-2"}; // Variante avec carte écartée
+	  case 5:
+		return {blue: "3", red: "2"};
+	  case 6:
+		return {blue: "4", red: "2"};
+	  case 7:
+		return {blue: "4-5", red: "2-3"}; // Variante avec carte écartée
+	  case 8:
+		return {blue: "5", red: "3"};
+	  default:
+		return {blue: "?", red: "?"};
+	}
+  };
+
+  const dist = getRoleDistribution();
+  const canUseScanner = gameState?.teamHasLoupe && currentRound < 4;
+
+  return (
+	  <div
+		  className="flex items-center justify-between px-6 py-2 bg-linear-to-b from-black/60 to-transparent border-b border-amber-900/20 shrink-0 h-24">
+
+		{/* HUD Stats & Roles */}
 		<div className="flex flex-col gap-1">
-		  <p className="text-[10px] sm:text-xs text-amber-600 uppercase tracking-widest font-black drop-shadow-md">
-			MANCHE {currentRound} <span className="text-amber-900/50 mx-1">|</span> COUPES: {cardsRevealed}/{totalPlayers}
-		  </p>
-		  <p className="text-sm sm:text-base font-black text-green-500 drop-shadow-[0_0_8px_rgba(34,197,94,0.4)] tracking-widest">
-			DÉSARMÉS: {defusesFound}/{defusesNeeded}
-		  </p>
+		  <div className="flex items-center gap-3">
+			<div className="flex items-center gap-2 bg-blue-900/40 px-3 py-1 rounded border border-blue-500/40 shadow-inner">
+			  <div className="relative w-6 h-8"><Image src={getRoleImage('SHERLOCK')} alt="B" fill className="object-contain" /></div>
+			  <span className="text-lg font-black text-blue-400">{dist.blue}</span>
+			</div>
+			<div className="flex items-center gap-2 bg-red-900/40 px-3 py-1 rounded border border-red-500/40 shadow-inner">
+			  <div className="relative w-6 h-8"><Image src={getRoleImage('MORIARTY')} alt="R" fill className="object-contain" /></div>
+			  <span className="text-lg font-black text-red-400">{dist.red}</span>
+			</div>
+		  </div>
+		  <p className="text-[10px] text-amber-600 uppercase tracking-[0.2em] font-black">MANCHE {currentRound}</p>
 		</div>
 
-		{/* Défausse (Cartes superposées) */}
-		<div className="flex overflow-x-auto pl-2 pr-4 max-w-[50%] py-2 items-center no-scrollbar">
-		  {revealedCards.map((card, i) => (
-			  <div
-				  key={i}
-				  className="relative w-12 h-16 shrink-0 animate-in fade-in slide-in-from-right-2 drop-shadow-xl -ml-6 first:ml-0 hover:-translate-y-2 transition-transform cursor-default"
-				  style={{ zIndex: i }}
-			  >
-				<Image src={getCardImage(card.type)} alt={card.type} fill className="object-contain" />
-			  </div>
-		  ))}
+		{/* CENTRE : BOUTON LOUPE STEAMPUNK */}
+		{canUseScanner && (
+			<button
+				onClick={() => setScannerActive(!isScannerActive)}
+				className={`px-6 py-2 rounded-lg border-2 transition-all flex items-center gap-2 shadow-2xl font-serif italic tracking-widest text-[10px]
+            ${isScannerActive ? 'bg-blue-900/80 border-blue-400 text-white animate-pulse' : 'bg-zinc-900/90 border-amber-700 text-amber-500 hover:border-amber-400 hover:text-amber-300'}`}
+			>
+			  🔍 {isScannerActive ? 'SCAN EN COURS...' : 'UTILISER LA LOUPE'}
+			</button>
+		)}
+
+		{/* Cimetière */}
+		<div className="flex flex-col items-end gap-1">
+		  <p className="text-[10px] font-black text-green-500 tracking-widest uppercase">DÉSARMÉS: {defusesFound}/{defusesNeeded}</p>
+		  <div className="flex overflow-x-auto pl-6 py-1 items-center no-scrollbar max-w-30">
+			{revealedCards?.map((card: CardType, i: number) => (
+				<div key={i} className="relative w-8 h-12 shrink-0 -ml-5 first:ml-0 drop-shadow-xl" style={{ zIndex: i }}>
+				  <Image src={getCardImage(card.type)} alt="card" fill className="object-contain" />
+				</div>
+			))}
+		  </div>
 		</div>
 	  </div>
   );
