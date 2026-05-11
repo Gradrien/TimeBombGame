@@ -2,6 +2,7 @@
 import Image from 'next/image';
 import {useGameStore} from '@/store/useGameStore';
 import {getRoleImage} from '@/utils/assets';
+import SteampunkButton from "@/components/Button";
 
 export function EndView() {
   const {gameState, socket, playerId} = useGameStore();
@@ -47,19 +48,21 @@ export function EndView() {
 		</div>
 
 		{/* ACTIONS (Fixes en bas) */}
-		<div className="flex flex-row gap-3 w-full max-w-md shrink-0 pb-2">
-		  <button
-			  onClick={() => socket.emit('restartGame', gameState.roomId)}
-			  className="flex-1 bg-amber-600 hover:bg-amber-500 text-black py-4 rounded-full font-black transition-transform active:scale-95 text-[10px] sm:text-xs tracking-[0.2em] uppercase shadow-lg"
+		<div className="flex flex-row gap-6 w-full justify-center shrink-0 pb-2">
+		  <SteampunkButton
+		  variant="neutral"
+		  size="lg"
+		  onClick={() => socket.emit('restartGame', gameState.roomId)}
 		  >
 			Rejouer
-		  </button>
-		  <button
-			  onClick={() => window.location.reload()}
-			  className="flex-1 border-2 border-zinc-600 bg-zinc-900/80 text-zinc-300 hover:text-white hover:border-zinc-400 hover:bg-zinc-800 py-4 rounded-full font-bold transition-colors text-[10px] sm:text-xs tracking-[0.2em] uppercase"
+		  </SteampunkButton>
+		  <SteampunkButton
+		  variant="ghost"
+		  size="lg"
+		  onClick={() => window.location.reload()}
 		  >
 			Sortir
-		  </button>
+		  </SteampunkButton>
 		</div>
 
 	  </main>

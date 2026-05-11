@@ -3,6 +3,8 @@ import Image from 'next/image';
 import {Card as CardType} from '@timebomb/shared';
 import {getCardImage, getRoleImage} from '@/utils/assets';
 import {useGameStore} from '@/store/useGameStore';
+import SteampunkButton from "@/components/Button";
+import {Search} from "lucide-react";
 
 interface Props {
   currentRound: number;
@@ -49,12 +51,16 @@ export function GameStatsBar({
 		{/* HUD Stats & Roles */}
 		<div className="flex flex-col gap-1">
 		  <div className="flex items-center gap-3">
-			<div className="flex items-center gap-2 bg-blue-900/40 px-3 py-1 rounded border border-blue-500/40 shadow-inner">
-			  <div className="relative w-6 h-8"><Image src={getRoleImage('SHERLOCK')} alt="B" fill className="object-contain" /></div>
+			<div
+				className="flex items-center gap-2 bg-blue-900/40 px-3 py-1 rounded border border-blue-500/40 shadow-inner">
+			  <div className="relative w-6 h-8"><Image src={getRoleImage('SHERLOCK')} alt="B" fill
+													   className="object-contain"/></div>
 			  <span className="text-lg font-black text-blue-400">{dist.blue}</span>
 			</div>
-			<div className="flex items-center gap-2 bg-red-900/40 px-3 py-1 rounded border border-red-500/40 shadow-inner">
-			  <div className="relative w-6 h-8"><Image src={getRoleImage('MORIARTY')} alt="R" fill className="object-contain" /></div>
+			<div
+				className="flex items-center gap-2 bg-red-900/40 px-3 py-1 rounded border border-red-500/40 shadow-inner">
+			  <div className="relative w-6 h-8"><Image src={getRoleImage('MORIARTY')} alt="R" fill
+													   className="object-contain"/></div>
 			  <span className="text-lg font-black text-red-400">{dist.red}</span>
 			</div>
 		  </div>
@@ -63,13 +69,11 @@ export function GameStatsBar({
 
 		{/* CENTRE : BOUTON LOUPE STEAMPUNK */}
 		{canUseScanner && (
-			<button
-				onClick={() => setScannerActive(!isScannerActive)}
-				className={`px-6 py-2 rounded-lg border-2 transition-all flex items-center gap-2 shadow-2xl font-serif italic tracking-widest text-[10px]
-            ${isScannerActive ? 'bg-blue-900/80 border-blue-400 text-white animate-pulse' : 'bg-zinc-900/90 border-amber-700 text-amber-500 hover:border-amber-400 hover:text-amber-300'}`}
+			<SteampunkButton variant={isScannerActive ? "sherlock" : "neutral"} size="md"
+							 onClick={() => setScannerActive(!isScannerActive)} icon={<Search/>}
 			>
-			  🔍 {isScannerActive ? 'SCAN EN COURS...' : 'UTILISER LA LOUPE'}
-			</button>
+			  {isScannerActive ? 'SCAN EN COURS...' : 'UTILISER LA LOUPE'}
+			</SteampunkButton>
 		)}
 
 		{/* Cimetière */}
@@ -77,8 +81,8 @@ export function GameStatsBar({
 		  <p className="text-[10px] font-black text-green-500 tracking-widest uppercase">DÉSARMÉS: {defusesFound}/{defusesNeeded}</p>
 		  <div className="flex overflow-x-auto pl-6 py-1 items-center no-scrollbar max-w-30">
 			{revealedCards?.map((card: CardType, i: number) => (
-				<div key={i} className="relative w-8 h-12 shrink-0 -ml-5 first:ml-0 drop-shadow-xl" style={{ zIndex: i }}>
-				  <Image src={getCardImage(card.type)} alt="card" fill className="object-contain" />
+				<div key={i} className="relative w-8 h-12 shrink-0 -ml-5 first:ml-0 drop-shadow-xl" style={{zIndex: i}}>
+				  <Image src={getCardImage(card.type)} alt="card" fill className="object-contain"/>
 				</div>
 			))}
 		  </div>

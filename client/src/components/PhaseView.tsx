@@ -1,11 +1,12 @@
 // client/src/components/PhaseView.tsx
-import { useState, useEffect } from 'react';
-import { useGameStore } from '@/store/useGameStore';
-import { RoleReveal } from './RoleReveal';
-import { CardReveal } from './CardReveal';
+import {useState, useEffect} from 'react';
+import {useGameStore} from '@/store/useGameStore';
+import {RoleReveal} from './RoleReveal';
+import {CardReveal} from './CardReveal';
+import SteampunkButton from "@/components/Button";
 
 export function PhaseView() {
-  const { gameState, socket, playerId } = useGameStore();
+  const {gameState, socket, playerId} = useGameStore();
   const [revealed, setRevealed] = useState(false);
   const [flippedIndices, setFlippedIndices] = useState<number[]>([]);
   const [shuffledCards, setShuffledCards] = useState<string[]>([]);
@@ -61,7 +62,8 @@ export function PhaseView() {
   const bgClass = gameState.phase === 'ROLE_REVEAL' ? 'bg-black/70' : 'bg-black/40';
 
   return (
-	  <div className={`flex flex-col h-dvh w-full text-white overflow-hidden select-none backdrop-blur-[2px] ${bgClass}`}>
+	  <div
+		  className={`flex flex-col h-dvh w-full text-white overflow-hidden select-none backdrop-blur-[2px] ${bgClass}`}>
 
 		{/* CONTENU CENTRAL EXTENSIBLE (Aucun overflow-hidden ici !) */}
 		<div className="flex-1 w-full flex items-center justify-center z-10">
@@ -83,28 +85,34 @@ export function PhaseView() {
 		</div>
 
 		{/* FOOTER FIXE AVEC PADDING MOBILE FIRST */}
-		<div className="shrink-0 flex flex-col items-center justify-center gap-3 sm:gap-4 w-full pb-6 sm:pb-10 landscape:pb-4 pt-2 z-20">
+		<div
+			className="shrink-0 flex flex-col items-center justify-center gap-3 sm:gap-4 w-full pb-6 sm:pb-10 landscape:pb-4 pt-2 z-20">
 		  {!revealed && gameState.phase === 'CARD_REVEAL' && !isReady ? (
-			  <button onClick={revealCardsOneByOne} className="bg-amber-600 text-black px-6 py-3 sm:px-12 sm:py-4 rounded-full font-bold text-[10px] sm:text-sm tracking-widest hover:bg-amber-400 transition-colors shadow-lg uppercase">
+			  <SteampunkButton
+				  onClick={revealCardsOneByOne}
+				  variant="neutral"
+				  size="lg"
+			  >
 				VÉRIFIER MES CÂBLES
-			  </button>
+			  </SteampunkButton>
 		  ) : revealed ? (
-			  <button
+			  <SteampunkButton
 				  disabled={isReady || isConfirming || isFlipping}
 				  onClick={handleConfirm}
-				  className={`px-6 py-3 sm:px-12 sm:py-4 rounded-full font-bold text-[10px] sm:text-sm tracking-widest transition-all border-2 uppercase
-              ${isReady || isConfirming ? 'border-transparent text-amber-500/50 italic animate-pulse' : 'border-amber-500 text-amber-400 hover:bg-amber-500 hover:text-black shadow-xl active:scale-95'}`}
+				  variant={isConfirming ? 'neutral' : isFlipping ? 'neutral' : 'sherlock'}
+				  size="lg"
 			  >
 				{isConfirming ? 'ATTENTE DES AUTRES...' : isFlipping ? 'RÉVÉLATION...' : "J'AI COMPRIS"}
-			  </button>
+			  </SteampunkButton>
 		  ) : (
-			  <div className="h-10 sm:h-14 landscape:h-8" />
+			  <div className="h-10 sm:h-14 landscape:h-8"/>
 		  )}
 
 		  {/* POINTS DE STATUT */}
 		  <div className="flex gap-2 sm:gap-3 z-10 mt-1">
 			{gameState.players.map(p => (
-				<div key={p.id} className={`w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full transition-all duration-500 ${gameState.readyPlayers.includes(p.id) ? 'bg-amber-500 scale-125 shadow-[0_0_8px_#f59e0b]' : 'bg-amber-900/30'}`} />
+				<div key={p.id}
+					 className={`w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full transition-all duration-500 ${gameState.readyPlayers.includes(p.id) ? 'bg-amber-500 scale-125 shadow-[0_0_8px_#f59e0b]' : 'bg-amber-900/30'}`}/>
 			))}
 		  </div>
 		</div>

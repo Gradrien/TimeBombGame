@@ -233,16 +233,17 @@ export function setupSocketHandlers(io: Server, socket: Socket) {
 	// On consomme le joker
 	room.teamHasLoupe = false;
 
-	let isSuccess = false;
+	let successChance;
 
 	if (targetPlayer.role === 'BROUILLEUR') {
-	  // Le pouvoir passif du Brouilleur s'active : échec garanti !
-	  isSuccess = false;
+	  // Le pouvoir passif du Brouilleur s'active : 90% de chance d'échec
+	  successChance = 0.1;
 	} else {
-	  // Calcul normal : 100% Round 1, 80% Round 2, 60% Round 3
-	  const successChance = 1 - ((room.currentRound - 1) * 0.2);
-	  isSuccess = Math.random() <= successChance;
+	  // Calcul normal : 100% Round 1, 90% Round 2, 80% Round 3
+	  successChance = 1 - ((room.currentRound - 1) * 0.1);
 	}
+
+	const isSuccess = Math.random() <= successChance;
 
 	if (isSuccess) {
 	  card.isPublic = true;
