@@ -122,9 +122,9 @@ export function GameAnimations() {
 
 		{/* ANIMATION LOUPE (Succès/Échec) */}
 		{loupeAnimation && (
-			<div className="fixed inset-0 z-200 flex items-center justify-center bg-blue-900/20 backdrop-blur-md animate-in fade-in">
+			<div className={`fixed inset-0 z-200 flex items-center justify-center ${loupeAnimation.success ? 'bg-blue-900/20' : 'bg-black/30'}  backdrop-blur-md animate-in fade-in`}>
 			  <div className="flex flex-col items-center animate-in zoom-in duration-500">
-				<p className={`text-3xl sm:text-6xl font-black italic tracking-[0.2em] uppercase mb-4 ${loupeAnimation.success ? 'text-blue-400' : 'text-zinc-500'}`}>
+				<p className={`text-3xl sm:text-6xl font-black italic tracking-[0.2em] uppercase mb-4 ${loupeAnimation.success ? 'text-blue-700' : 'text-zinc-800'}`}>
 				  {loupeAnimation.success ? 'INDICE RÉVÉLÉ !' : 'LOUPE BRISÉE...'}
 				</p>
 				<p className="text-xl text-zinc-100 font-serif italic tracking-widest">

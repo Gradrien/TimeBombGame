@@ -6,21 +6,21 @@ import {getCardImage, ASSETS} from '@/utils/assets';
 interface CardProps {
   card: CardType;
   isInteractable: boolean;
+  forceFaceUp?: boolean;
   onAction: (cardId: string) => void;
 }
 
-export function Card({ card, isInteractable, onAction }: CardProps) {
-  const isFlipped = card.isRevealed || card.isPublic;
+export function Card({ card, isInteractable, onAction, forceFaceUp }: CardProps) {
+  const isFlipped = card.isRevealed || card.isPublic || forceFaceUp;
 
   return (
 	  <button
 		  onClick={() => onAction(card.id)}
-		  disabled={!isInteractable}
+		  disabled={!isInteractable || card.isRevealed}
 		  className={`
         relative w-16 h-24 sm:w-24 sm:h-36 rounded-lg overflow-hidden
         transition-all duration-300
         ${isInteractable ? 'hover:-translate-y-2 cursor-pointer' : 'cursor-default'}
-        ${card.isPublic && !card.isRevealed ? 'ring-2 ring-amber-500/50 shadow-[0_0_15px_rgba(245,158,11,0.4)]' : ''}
       `}
 		  style={{ perspective: '1000px' }}
 	  >

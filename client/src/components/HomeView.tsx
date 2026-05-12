@@ -38,9 +38,9 @@ export function HomeView() {
 			className="flex flex-col gap-4 w-full max-w-sm ">
 
 		  {error && (
-			  <div
-				  className="bg-red-900/50 border border-red-500 text-red-200 px-4 py-3 rounded-lg text-sm text-center font-bold">
-				{error}
+			  <div className="relative overflow-hidden bg-gradient-to-b from-[#6e1d26] to-[#2a080d] border-2 border-[#b77b4a] text-[#f7d8b5] px-4 py-3 rounded-xl text-sm text-center font-bold shadow-[0_8px_20px_rgba(0,0,0,0.6),inset_0_1px_0_rgba(255,255,255,0.1)]">
+				<div className="absolute inset-0 opacity-20 pointer-events-none" style={{ backgroundImage: "repeating-linear-gradient(45deg, rgba(255,255,255,0.05) 0px, rgba(255,255,255,0.05) 2px, transparent 2px, transparent 6px)" }} />
+				<span className="relative z-10 tracking-wider font-serif uppercase">{error}</span>
 			  </div>
 		  )}
 
@@ -73,7 +73,7 @@ export function HomeView() {
 					type="text"
 					placeholder="Ton pseudo"
 					maxLength={12}
-					className="p-3 rounded-lg bg-black/50 border border-zinc-600 focus:outline-none focus:border-amber-500 transition-colors"
+					className="w-full p-4 rounded-xl border-2 border-[#8a6842] bg-[#1a1510] text-[#c9a56d] font-serif tracking-widest uppercase placeholder:text-[#5a4b3c] focus:outline-none focus:border-[#c9a56d] focus:bg-[#221c16] focus:shadow-[0_0_15px_rgba(201,165,109,0.2)] transition-all shadow-[inset_0_4px_12px_rgba(0,0,0,0.8)]"
 					value={playerName}
 					onChange={(e) => setPlayerName(e.target.value)}
 				/>
@@ -98,29 +98,34 @@ export function HomeView() {
 					type="text"
 					placeholder="Ton pseudo"
 					maxLength={12}
-					className="p-3 rounded-lg bg-black/50 border border-zinc-600 focus:outline-none focus:border-amber-500 transition-colors mb-4"
+					className="w-full p-4 rounded-xl border-2 border-[#8a6842] bg-[#1a1510] text-[#c9a56d] font-serif tracking-widest uppercase placeholder:text-[#5a4b3c] focus:outline-none focus:border-[#c9a56d] focus:bg-[#221c16] focus:shadow-[0_0_15px_rgba(201,165,109,0.2)] transition-all shadow-[inset_0_4px_12px_rgba(0,0,0,0.8)]"
 					value={playerName}
 					onChange={(e) => setPlayerName(e.target.value)}
 				/>
 
-				{/* Liste des Rooms */}
-				{openRooms.length > 0 ? (
-					<div className="flex flex-col gap-2 mb-4 max-h-40 overflow-y-auto pr-2 no-scrollbar">
-					  {openRooms.map((r) => (
-
+				{/* Liste des Rooms (Style Plaques Cuivrées) */}
+				<div className="flex flex-col gap-3 mb-2 max-h-48 overflow-y-auto pr-2 custom-scrollbar">
+				  {openRooms.length > 0 ? (
+					  openRooms.map((r) => (
 						  <button
 							  key={r.roomId}
 							  onClick={() => playerName ? joinRoom(r.roomId, playerName) : alert("Entre un pseudo d'abord !")}
-							  className="flex justify-between items-center p-3 bg-zinc-900 border border-zinc-700 rounded-lg hover:border-amber-500 hover:bg-zinc-800 transition-colors text-left"
+							  className="relative overflow-hidden flex justify-between items-center p-4 bg-gradient-to-b from-[#3b3127] to-[#221c16] border-2 border-[#8a6842] rounded-xl hover:border-[#c9a56d] hover:brightness-110 active:brightness-90 transition-all group text-left"
 						  >
-							<span className="font-mono text-amber-500 font-bold">{r.roomId}</span>
-							<span className="text-xs text-zinc-400">{r.playerCount}/8 Joueurs</span>
+							<div className="absolute inset-0 opacity-10 pointer-events-none" style={{ backgroundImage: "repeating-linear-gradient(45deg, rgba(255,255,255,0.05) 0px, rgba(255,255,255,0.05) 2px, transparent 2px, transparent 6px)" }} />
+							<span className="font-serif tracking-widest text-[#c9a56d] font-bold text-lg drop-shadow-md relative z-10">{r.roomId}</span>
+							<span className="text-xs font-serif tracking-widest text-[#b08a57] uppercase bg-[#1a1510] px-3 py-1.5 rounded-lg border border-[#5a4b3c] shadow-inner relative z-10">
+                              {r.playerCount}/8 <span className="hidden sm:inline">Joueurs</span>
+                            </span>
 						  </button>
-					  ))}
-					</div>
-				) : (
-					<p className="text-center  text-sm mb-4 italic">Aucune room ouverte en ce moment</p>
-				)}
+					  ))
+				  ) : (
+					  <div className="p-6 border-2 border-dashed border-[#5a4b3c] rounded-xl bg-[#1a1510]/50 text-center">
+						<p className="text-[#b08a57] font-serif italic text-sm tracking-widest uppercase">Aucune room ouverte</p>
+					  </div>
+				  )}
+				</div>
+
 				<SteampunkButton variant="neutral" size="md"
 								 onClick={() => setView('MAIN')}
 				>

@@ -44,6 +44,10 @@ interface GameStore {
   fetchOpenRooms: () => void;
   startGame: (roomId: string) => void;
   cutCard: (roomId: string, targetPlayerId: string, cardId: string) => void;
+
+  leaveRoom: (roomId: string) => void;
+  isReviewingCards: boolean;
+  setReviewingCards: (val: boolean) => void;
 }
 
 export const useGameStore = create<GameStore>((set, get) => ({
@@ -54,6 +58,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
   isAnimatingCut: false,
   openRooms: [],
   error: null,
+  isReviewingCards: false,
+  setReviewingCards: (val) => set({ isReviewingCards: val }),
 
   loupeAnimation: null,
   isScannerActive: false,
@@ -61,6 +67,12 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
   setPlayerName: (name) => set({playerName: name}),
   clearError: () => set({error: null}),
+
+  leaveRoom: (roomId) => {
+	const { socket } = get();
+	if (socket) socket.emit('leaveRoom', roomId);
+	set({ gameState: null, isScannerActive: false, isReviewingCards: false });
+  },
 
   initSocket: () => {
 	if (get().socket) return;
@@ -130,5 +142,5 @@ export const useGameStore = create<GameStore>((set, get) => ({
 	const { socket } = get();
 	if (socket) socket.emit('useLoupe', roomId, targetPlayerId, cardId);
 	set({ isScannerActive: false });
-  }
+  },
 }));

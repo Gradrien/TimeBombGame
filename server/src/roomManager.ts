@@ -14,17 +14,17 @@ function generateRoomCode() {
 
 function sanitizeStateForPlayer(gameState: GameState, targetPlayerId: string): GameState {
   const sanitized = JSON.parse(JSON.stringify(gameState)) as GameState;
+
   sanitized.players = sanitized.players.map(p => {
 	if (p.id === targetPlayerId) {
 	  p.secretCards = p.cards.filter(c => !c.isRevealed).map(c => c.type);
 	} else {
 	  if (sanitized.status !== 'FINISHED') delete p.role;
+	  p.cards = p.cards.map(c => (c.isRevealed || c.isPublic) ? c : { ...c, type: 'SAFE' });
 	}
-
-	// CORRECTION LOUPE : On masque le type sauf si la carte est révélée (coupée) OU publique (scannée)
-	p.cards = p.cards.map(c => (c.isRevealed || c.isPublic) ? c : {...c, type: 'SAFE'});
 	return p;
   });
+
   return sanitized;
 }
 
@@ -255,6 +255,24 @@ export function setupSocketHandlers(io: Server, socket: Socket) {
 	broadcastGameState(io, roomId);
   });
 
+  socket.on('leaveRoom', (roomId: string) => {
+	const room = activeRooms.get(roomId);
+	if (!room) return;
+
+	const playerIndex = room.players.findIndex(p => (p as any).socketId === socket.id);
+	if (playerIndex !== -1) {
+	  room.players.splice(playerIndex, 1);
+	  if (room.players.length === 0) {
+		activeRooms.delete(roomId); // Ferme le lobby si c'est le dernier
+	  } else {
+		// Transfère l'ownership si l'hôte part
+		if (!room.players.some(p => p.isHost)) room.players[0].isHost = true;
+		broadcastGameState(io, roomId);
+	  }
+	}
+	socket.leave(roomId);
+  });
+
   socket.on('restartGame', (roomId: string) => {
 	const room = activeRooms.get(roomId);
 	if (!room) return;
@@ -280,8 +298,7 @@ export function setupSocketHandlers(io: Server, socket: Socket) {
 	for (const [roomId, room] of activeRooms.entries()) {
 	  const playerIndex = room.players.findIndex(p => (p as any).socketId === socket.id);
 	  if (playerIndex !== -1) {
-		if (room.status === 'LOBBY') {
-		  // S'ils sont dans le lobby, on les supprime vraiment
+		if (room.status === 'LOBBY' || room.status === 'FINISHED') {
 		  room.players.splice(playerIndex, 1);
 		  if (room.players.length === 0) {
 			activeRooms.delete(roomId);

@@ -9,6 +9,7 @@ import { HomeView } from '@/components/HomeView';
 import { LobbyView } from '@/components/LobbyView';
 import { EndView } from '@/components/EndView';
 import { FullScreenToggle } from '@/components/FullScreenToggle';
+import {SettingsMenu} from "@/components/SettingsMenu";
 
 export default function Home() {
   const { initSocket, gameState, isAnimatingCut, playerName, startGame } = useGameStore();
@@ -19,7 +20,7 @@ export default function Home() {
 
   return (
       <>
-        <FullScreenToggle />
+        <SettingsMenu />
 
         {!gameState && (
             <HomeView />

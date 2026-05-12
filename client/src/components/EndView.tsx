@@ -5,7 +5,7 @@ import {getRoleImage} from '@/utils/assets';
 import SteampunkButton from "@/components/Button";
 
 export function EndView() {
-  const {gameState, socket, playerId} = useGameStore();
+  const {gameState, socket, playerId, leaveRoom} = useGameStore();
 
   if (!gameState || !socket || gameState.status !== 'FINISHED') return null;
 
@@ -59,7 +59,7 @@ export function EndView() {
 		  <SteampunkButton
 		  variant="ghost"
 		  size="lg"
-		  onClick={() => window.location.reload()}
+		  onClick={() => leaveRoom(gameState.roomId)}
 		  >
 			Sortir
 		  </SteampunkButton>
