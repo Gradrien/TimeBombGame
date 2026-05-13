@@ -1,15 +1,7 @@
-// client/src/components/RoleReveal.tsx
 import {useState} from 'react';
 import Image from 'next/image';
 import {getRoleImage, ASSETS} from '@/utils/assets';
-
-interface RoleRevealProps {
-  role: string;
-  revealed: boolean;
-  isReady: boolean;
-  isConfirming: boolean;
-  onReveal: () => void;
-}
+import type {RoleRevealProps} from "@/types/types";
 
 export function RoleReveal({role, revealed, isReady, isConfirming, onReveal}: RoleRevealProps) {
   const [skinIndex] = useState(() => {

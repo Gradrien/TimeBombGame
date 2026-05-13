@@ -1,8 +1,7 @@
-// client/src/components/GameAnimations.tsx
 import { useState, useEffect, useRef } from 'react';
 import Image from 'next/image';
 import { useGameStore } from '@/store/useGameStore';
-import { Card as CardType } from '@timebomb/shared';
+import type { Card as CardType } from '@timebomb/shared';
 import { getCardImage, ASSETS } from '@/utils/assets';
 
 export function GameAnimations() {
@@ -11,9 +10,6 @@ export function GameAnimations() {
   const [lastCutData, setLastCutData] = useState<{card: CardType, ownerName: string} | null>(null);
   const [showLastCutWarning, setShowLastCutWarning] = useState(false);
 
-  // On garde en mémoire le nombre de cartes révélées.
-  // Lors du montage du composant (début du round), on prend la longueur actuelle
-  // pour ne pas animer les cartes du round précédent.
   const prevCount = useRef(gameState?.revealedCards?.length || 0);
 
   useEffect(() => {
@@ -53,7 +49,6 @@ export function GameAnimations() {
 	  };
 	}
 
-	// On synchronise le compteur (utile en cas de relance de partie)
 	prevCount.current = currentCount;
 	// eslint-disable-next-line react-hooks/exhaustive-deps
   }, [gameState?.revealedCards?.length]);
@@ -67,7 +62,6 @@ export function GameAnimations() {
 			<div
 				className="fixed inset-0 z-150 flex items-center justify-center bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
 
-			  {/* Conteneur principal respectant tes tailles responsives */}
 			  <div
 				  className="relative w-32 h-48 sm:w-64 sm:h-96 landscape:w-32 landscape:h-48 flex flex-col items-center">
 

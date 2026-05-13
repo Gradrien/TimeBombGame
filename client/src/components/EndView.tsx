@@ -1,4 +1,3 @@
-// client/src/components/EndView.tsx
 import Image from 'next/image';
 import {useGameStore} from '@/store/useGameStore';
 import {getRoleImage} from '@/utils/assets';
@@ -26,7 +25,7 @@ export function EndView() {
 			</h3>
 		  </div>
 
-		  {/* GRILLE DES JOUEURS : Zone de scroll principale */}
+		  {/* GRILLE DES JOUEURS */}
 		  <div className="flex-1 overflow-y-auto px-4 no-scrollbar">
 			<div className="grid grid-cols-2 sm:grid-cols-5 gap-3 py-4 justify-items-center">
 			  {gameState.players.map(p => (
@@ -47,7 +46,7 @@ export function EndView() {
 		  </div>
 		</div>
 
-		{/* ACTIONS (Fixes en bas) */}
+		{/* ACTIONS */}
 		<div className="flex flex-row gap-6 w-full justify-center shrink-0 pb-2">
 		  <SteampunkButton
 		  variant="neutral"

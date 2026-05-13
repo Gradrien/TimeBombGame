@@ -1,16 +1,8 @@
-// client/src/components/Card.tsx
-import {Card as CardType} from '@timebomb/shared';
 import Image from 'next/image';
 import {getCardImage, ASSETS} from '@/utils/assets';
+import type {CardProps} from "@/types/types";
 
-interface CardProps {
-  card: CardType;
-  isInteractable: boolean;
-  forceFaceUp?: boolean;
-  onAction: (cardId: string) => void;
-}
-
-export function Card({ card, isInteractable, onAction, forceFaceUp }: CardProps) {
+export function Card({card, isInteractable, onAction, forceFaceUp}: CardProps) {
   const isFlipped = card.isRevealed || card.isPublic || forceFaceUp;
 
   return (
@@ -22,7 +14,7 @@ export function Card({ card, isInteractable, onAction, forceFaceUp }: CardProps)
         transition-all duration-300
         ${isInteractable ? 'hover:-translate-y-2 cursor-pointer' : 'cursor-default'}
       `}
-		  style={{ perspective: '1000px' }}
+		  style={{perspective: '1000px'}}
 	  >
 		<div
 			className="relative w-full h-full transition-transform duration-500 rounded-xl"
@@ -31,11 +23,11 @@ export function Card({ card, isInteractable, onAction, forceFaceUp }: CardProps)
 			  transform: isFlipped ? 'rotateY(180deg)' : 'rotateY(0deg)'
 			}}
 		>
-		  <div className="absolute inset-0" style={{ backfaceVisibility: 'hidden' }}>
-			<Image src={ASSETS.CARD_BACK} alt="Câble" fill className="object-contain" />
+		  <div className="absolute inset-0" style={{backfaceVisibility: 'hidden'}}>
+			<Image src={ASSETS.CARD_BACK} alt="Câble" fill className="object-contain"/>
 		  </div>
-		  <div className="absolute inset-0" style={{ backfaceVisibility: 'hidden', transform: 'rotateY(180deg)' }}>
-			<Image src={getCardImage(card.type)} alt={card.type} fill className="object-contain" />
+		  <div className="absolute inset-0" style={{backfaceVisibility: 'hidden', transform: 'rotateY(180deg)'}}>
+			<Image src={getCardImage(card.type)} alt={card.type} fill className="object-contain"/>
 		  </div>
 		</div>
 	  </button>

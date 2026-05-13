@@ -2,14 +2,12 @@ import express from 'express';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
 import { setupSocketHandlers } from './roomManager';
-// import { GameState } from '@timebomb/shared';
 
 const app = express();
 const httpServer = createServer(app);
 const io = new Server(httpServer, {
   cors: {
-    origin: process.env.CLIENT_URL || '*', // En prod, on passera l'URL exacte
-    methods: ["GET", "POST"]
+    origin: process.env.CLIENT_URL || '*',
   }});
 
 io.on('connection', (socket) => {

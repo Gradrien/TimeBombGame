@@ -1,5 +1,3 @@
-// client/src/utils/assets.ts
-
 export const getRoleImage = (role?: string, skinIndex: number = 1) => {
   if (role === 'BROUILLEUR') return `/assets/role-red-brouilleur.png`;
   if (role === 'MORIARTY') return `/assets/role-red-${skinIndex}.png`;

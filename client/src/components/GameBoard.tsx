@@ -1,10 +1,9 @@
-// client/src/components/GameBoard.tsx
 import { useState } from 'react';
 import { useGameStore } from '@/store/useGameStore';
-import { TopNavBar } from './TopNavBar';
-import { GameStatsBar } from './GameStatsBar';
-import { GamePlayArea } from './GamePlayArea';
-import { GameAnimations } from './GameAnimations';
+import { TopNavBar } from '@/components/TopNavBar';
+import { GameStatsBar } from '@/components/GameStatsBar';
+import { GamePlayArea } from '@/components/GamePlayArea';
+import { GameAnimations } from '@/components/GameAnimations';
 
 export function GameBoard() {
   const { gameState, socket, cutCard, playerId } = useGameStore();

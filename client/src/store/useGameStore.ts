@@ -1,7 +1,7 @@
-// client/src/store/useGameStore.ts
 import {create} from 'zustand';
-import {io, Socket} from 'socket.io-client';
-import type {GameState} from '../../../shared';
+import {io} from 'socket.io-client';
+import type {GameState} from '@timebomb/shared';
+import type {GameStoreProps, RoomInfo} from "@/types/types";
 
 const SOCKET_URL = process.env.NEXT_PUBLIC_SOCKET_URL || 'http://localhost:3001';
 
@@ -16,41 +16,8 @@ const getPersistentPlayerId = () => {
   return id;
 };
 
-interface RoomInfo {
-  roomId: string;
-  playerCount: number;
-}
 
-interface GameStore {
-  socket: Socket | null;
-  gameState: GameState | null;
-  playerName: string;
-  playerId: string;
-  isAnimatingCut: boolean;
-  openRooms: RoomInfo[];
-  error: string | null;
-
-  loupeAnimation: { success: boolean, targetName: string } | null;
-  isScannerActive: boolean; // Le mode scanner devient global
-  setScannerActive: (active: boolean) => void;
-  toggleLoupeMode: (roomId: string, enabled: boolean) => void;
-  useLoupe: (roomId: string, targetPlayerId: string, cardId: string) => void;
-
-  setPlayerName: (name: string) => void;
-  clearError: () => void;
-  initSocket: () => void;
-  createRoom: (name: string) => void;
-  joinRoom: (roomId: string, name: string) => void;
-  fetchOpenRooms: () => void;
-  startGame: (roomId: string) => void;
-  cutCard: (roomId: string, targetPlayerId: string, cardId: string) => void;
-
-  leaveRoom: (roomId: string) => void;
-  isReviewingCards: boolean;
-  setReviewingCards: (val: boolean) => void;
-}
-
-export const useGameStore = create<GameStore>((set, get) => ({
+export const useGameStore = create<GameStoreProps>((set, get) => ({
   socket: null,
   gameState: null,
   playerName: '',
@@ -59,19 +26,19 @@ export const useGameStore = create<GameStore>((set, get) => ({
   openRooms: [],
   error: null,
   isReviewingCards: false,
-  setReviewingCards: (val) => set({ isReviewingCards: val }),
+  setReviewingCards: (val) => set({isReviewingCards: val}),
 
   loupeAnimation: null,
   isScannerActive: false,
-  setScannerActive: (active) => set({ isScannerActive: active }),
+  setScannerActive: (active) => set({isScannerActive: active}),
 
   setPlayerName: (name) => set({playerName: name}),
   clearError: () => set({error: null}),
 
   leaveRoom: (roomId) => {
-	const { socket } = get();
+	const {socket} = get();
 	if (socket) socket.emit('leaveRoom', roomId);
-	set({ gameState: null, isScannerActive: false, isReviewingCards: false });
+	set({gameState: null, isScannerActive: false, isReviewingCards: false});
   },
 
   initSocket: () => {
@@ -96,8 +63,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
 	});
 
 	socket.on('loupeResult', (result: { success: boolean, targetName: string }) => {
-	  set({ loupeAnimation: result, isScannerActive: false });
-	  setTimeout(() => set({ loupeAnimation: null }), 3000);
+	  set({loupeAnimation: result, isScannerActive: false});
+	  setTimeout(() => set({loupeAnimation: null}), 3000);
 	});
 
 	// AUTO-RECONNEXION : Au démarrage, on demande au serveur si on est déjà dans une partie
@@ -134,13 +101,13 @@ export const useGameStore = create<GameStore>((set, get) => ({
   },
 
   toggleLoupeMode: (roomId, enabled) => {
-	const { socket } = get();
+	const {socket} = get();
 	if (socket) socket.emit('toggleLoupeMode', roomId, enabled);
   },
 
   useLoupe: (roomId, targetPlayerId, cardId) => {
-	const { socket } = get();
+	const {socket} = get();
 	if (socket) socket.emit('useLoupe', roomId, targetPlayerId, cardId);
-	set({ isScannerActive: false });
+	set({isScannerActive: false});
   },
 }));

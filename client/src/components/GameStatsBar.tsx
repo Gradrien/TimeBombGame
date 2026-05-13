@@ -1,18 +1,11 @@
-// client/src/components/GameStatsBar.tsx
 import Image from 'next/image';
 import {Card as CardType} from '@timebomb/shared';
 import {getCardImage, getRoleImage} from '@/utils/assets';
 import {useGameStore} from '@/store/useGameStore';
 import SteampunkButton from "@/components/Button";
 import {Search} from "lucide-react";
+import type {GameStatsBarProps} from "@/types/types";
 
-interface Props {
-  currentRound: number;
-  totalPlayers: number;
-  defusesFound: number;
-  defusesNeeded: number;
-  revealedCards: CardType[];
-}
 
 export function GameStatsBar({
 							   currentRound,
@@ -20,20 +13,20 @@ export function GameStatsBar({
 							   defusesFound,
 							   defusesNeeded,
 							   revealedCards
-							 }: Props) {
+							 }: GameStatsBarProps) {
   const {gameState, isScannerActive, setScannerActive} = useGameStore();
 
   // Logique de distribution des rôles (Standard Time Bomb)
   const getRoleDistribution = () => {
 	switch (totalPlayers) {
 	  case 4:
-		return {blue: "2-3", red: "1-2"}; // Variante avec carte écartée
+		return {blue: "2-3", red: "1-2"};
 	  case 5:
 		return {blue: "3", red: "2"};
 	  case 6:
 		return {blue: "4", red: "2"};
 	  case 7:
-		return {blue: "4-5", red: "2-3"}; // Variante avec carte écartée
+		return {blue: "4-5", red: "2-3"};
 	  case 8:
 		return {blue: "5", red: "3"};
 	  default:

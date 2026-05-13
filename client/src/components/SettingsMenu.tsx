@@ -1,5 +1,5 @@
-// client/src/components/SettingsMenu.tsx
 'use client';
+
 import { useState, useEffect, useRef } from 'react';
 import { useGameStore } from '@/store/useGameStore';
 

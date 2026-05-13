@@ -1,6 +1,5 @@
-// server/src/roomManager.ts
 import {Server, Socket} from 'socket.io';
-import {GameState, ValidPlayerCount} from '@timebomb/shared';
+import type {GameState, ValidPlayerCount} from '@timebomb/shared';
 import {assignRoles, generateInitialDeck, distributeCards, gatherAndShuffleRemainingCards} from './gameEngine';
 
 const activeRooms = new Map<string, GameState>();
@@ -230,7 +229,6 @@ export function setupSocketHandlers(io: Server, socket: Socket) {
 	const card = targetPlayer.cards.find(c => c.id === cardId);
 	if (!card || card.isRevealed || card.isPublic) return;
 
-	// On consomme le joker
 	room.teamHasLoupe = false;
 
 	let successChance;

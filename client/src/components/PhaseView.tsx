@@ -1,8 +1,7 @@
-// client/src/components/PhaseView.tsx
 import {useState, useEffect} from 'react';
 import {useGameStore} from '@/store/useGameStore';
-import {RoleReveal} from './RoleReveal';
-import {CardReveal} from './CardReveal';
+import {RoleReveal} from '@/components/RoleReveal';
+import {CardReveal} from '@/components/CardReveal';
 import SteampunkButton from "@/components/Button";
 
 export function PhaseView() {
@@ -47,13 +46,13 @@ export function PhaseView() {
 	  setRevealed(false);
 	  setTimeout(() => socket.emit('confirmRole', gameState.roomId), 500);
 	} else {
-	  setFlippedIndices([]); // 1. Retourne face cachée
+	  setFlippedIndices([]);
 
 	  setTimeout(() => {
-		setIsShuffling(true); // 2. Lance la rotation orbitale
+		setIsShuffling(true);
 
 		setTimeout(() => {
-		  socket.emit('confirmCards', gameState.roomId); // 3. Valide côté serveur
+		  socket.emit('confirmCards', gameState.roomId);
 		}, 800);
 	  }, 400);
 	}
@@ -65,7 +64,7 @@ export function PhaseView() {
 	  <div
 		  className={`flex flex-col h-dvh w-full text-white overflow-hidden select-none backdrop-blur-[2px] ${bgClass}`}>
 
-		{/* CONTENU CENTRAL EXTENSIBLE (Aucun overflow-hidden ici !) */}
+		{/* CONTENU CENTRAL */}
 		<div className="flex-1 w-full flex items-center justify-center z-10">
 		  {gameState.phase === 'ROLE_REVEAL' ? (
 			  <RoleReveal
@@ -84,7 +83,7 @@ export function PhaseView() {
 		  )}
 		</div>
 
-		{/* FOOTER FIXE AVEC PADDING MOBILE FIRST */}
+		{/* FOOTER */}
 		<div
 			className="shrink-0 flex flex-col items-center justify-center gap-3 sm:gap-4 w-full pb-6 sm:pb-10 landscape:pb-4 pt-2 z-20">
 		  {!revealed && gameState.phase === 'CARD_REVEAL' && !isReady ? (

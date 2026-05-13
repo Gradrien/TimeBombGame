@@ -1,4 +1,3 @@
-// client/src/app/page.tsx
 'use client';
 
 import { useEffect } from 'react';
@@ -8,7 +7,6 @@ import { PhaseView } from '@/components/PhaseView';
 import { HomeView } from '@/components/HomeView';
 import { LobbyView } from '@/components/LobbyView';
 import { EndView } from '@/components/EndView';
-import { FullScreenToggle } from '@/components/FullScreenToggle';
 import {SettingsMenu} from "@/components/SettingsMenu";
 
 export default function Home() {

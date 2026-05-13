@@ -1,4 +1,3 @@
-// client/src/components/HomeView.tsx
 import {useState, useEffect} from 'react';
 import {useGameStore} from '@/store/useGameStore';
 import SteampunkButton from "@/components/Button";
@@ -17,7 +16,6 @@ export function HomeView() {
   } = useGameStore();
   const [view, setView] = useState<'MAIN' | 'CREATE' | 'JOIN'>('MAIN');
 
-  // Quand on ouvre la vue JOIN, on demande au serveur les lobbys disponibles
   useEffect(() => {
 	if (view === 'JOIN') fetchOpenRooms();
   }, [view, fetchOpenRooms]);
@@ -103,7 +101,7 @@ export function HomeView() {
 					onChange={(e) => setPlayerName(e.target.value)}
 				/>
 
-				{/* Liste des Rooms (Style Plaques Cuivrées) */}
+				{/* Liste des Rooms */}
 				<div className="flex flex-col gap-3 mb-2 max-h-48 overflow-y-auto pr-2 custom-scrollbar">
 				  {openRooms.length > 0 ? (
 					  openRooms.map((r) => (

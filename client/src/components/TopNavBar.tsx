@@ -1,16 +1,6 @@
-// client/src/components/TopNavBar.tsx
-import { Player } from '@timebomb/shared';
 import Image from 'next/image';
 import { ASSETS } from '@/utils/assets';
-
-interface TopNavBarProps {
-  me: Player;
-  opponents: Player[];
-  viewedPlayerId: string | null;
-  setViewedPlayerId: (id: string | null) => void;
-  playerWithClippers: string;
-  iHaveClippers: boolean;
-}
+import type {TopNavBarProps} from "@/types/types";
 
 export function TopNavBar({ me, opponents, viewedPlayerId, setViewedPlayerId, playerWithClippers, iHaveClippers }: TopNavBarProps) {
   const isViewingOpponent = viewedPlayerId !== null && viewedPlayerId !== me.id;

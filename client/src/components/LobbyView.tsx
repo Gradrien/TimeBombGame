@@ -1,15 +1,8 @@
-// client/src/components/LobbyView.tsx
-import {GameState} from '@timebomb/shared';
 import {useGameStore} from '@/store/useGameStore';
 import SteampunkButton from "@/components/Button";
+import type {LobbyViewProps} from "@/types/types";
 
-interface Props {
-  gameState: GameState;
-  playerName: string;
-  onStart: () => void;
-}
-
-export function LobbyView({gameState, playerName, onStart}: Props) {
+export function LobbyView({gameState, playerName, onStart}: LobbyViewProps) {
   const {toggleLoupeMode, leaveRoom} = useGameStore();
   const isHost = gameState.players.find((p) => p.name === playerName)?.isHost;
   const canStart = gameState.players.length >= 4 && gameState.players.length <= 8;

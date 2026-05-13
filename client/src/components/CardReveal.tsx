@@ -1,12 +1,6 @@
-// client/src/components/CardReveal.tsx
 import Image from 'next/image';
 import {getCardImage, ASSETS} from '@/utils/assets';
-
-interface CardRevealProps {
-  cards: string[];
-  flippedIndices: number[];
-  isShuffling: boolean;
-}
+import type {CardRevealProps} from "@/types/types";
 
 export function CardReveal({cards, flippedIndices, isShuffling}: CardRevealProps) {
   return (
@@ -20,7 +14,7 @@ export function CardReveal({cards, flippedIndices, isShuffling}: CardRevealProps
 				  transformStyle: 'preserve-3d',
 				  // Le transform exact que tu as demandé :
 				  transform: `${isShuffling ? 'rotateZ(-180deg)' : 'rotateZ(0deg)'} ${flippedIndices.includes(i) ? 'rotateY(180deg)' : 'rotateY(0deg)'}`
-			}}
+				}}
 			>
 			  <div className="absolute inset-0" style={{backfaceVisibility: 'hidden'}}>
 				<Image src={ASSETS.CARD_BACK} alt="Câble" fill className="object-contain drop-shadow-lg"/>
