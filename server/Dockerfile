@@ -1,25 +1,21 @@
-FROM node:20-alpine
-
+FROM node:22-alpine
 WORKDIR /app
 
-# Copie uniquement les fichiers de dépendances d'abord (pour le cache Docker)
-COPY package.json ./
-COPY prisma ./prisma/
+# 1. On copie le dossier partagé ET le dossier serveur
+COPY shared ./shared
+COPY server ./server
 
-# Installation propre
+# 2. On se place dans le serveur et on installe
+WORKDIR /app/server
 RUN npm install
 
-# Génération du client Prisma
+# 3. On génère le client Prisma (indispensable)
 RUN npx prisma generate
 
-# Copie du reste du code source
-COPY . .
+# 4. Build du TypeScript (à décommenter si tu as un script "build" dans le package.json du serveur)
+# RUN npm run build
 
-# Build du code TypeScript (si tu as un script de build)
-RUN npm run build
-
-# Exposition du port Socket.io (3001 par défaut)
 EXPOSE 3001
 
-# Lancement du serveur
+# 5. On lance le serveur
 CMD ["npm", "start"]
