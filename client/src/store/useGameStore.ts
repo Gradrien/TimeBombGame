@@ -5,23 +5,21 @@ import type {GameStoreProps, RoomInfo} from "@/types/types";
 
 const SOCKET_URL = process.env.NEXT_PUBLIC_SOCKET_URL || 'http://localhost:3001';
 
-// Fonction pour générer ou récupérer l'ID unique du joueur sur cet appareil
-const getPersistentPlayerId = () => {
-  if (typeof window === 'undefined') return '';
-  let id = sessionStorage.getItem('timebomb_playerId');
-  if (!id) {
-	id = Math.random().toString(36).substring(2, 15);
-	sessionStorage.setItem('timebomb_playerId', id);
-  }
-  return id;
+const getSavedSession = () => {
+  if (typeof window === 'undefined') return null;
+  const saved = localStorage.getItem('timebomb_session');
+  return saved ? JSON.parse(saved) : null;
 };
 
 
 export const useGameStore = create<GameStoreProps>((set, get) => ({
   socket: null,
   gameState: null,
-  playerName: '',
-  playerId: getPersistentPlayerId(),
+
+  playerName: getSavedSession()?.username || '',
+  playerId: getSavedSession()?.id || '',
+  pinCode: getSavedSession()?.pinCode || '',
+
   isAnimatingCut: false,
   openRooms: [],
   error: null,
@@ -33,12 +31,34 @@ export const useGameStore = create<GameStoreProps>((set, get) => ({
   setScannerActive: (active) => set({isScannerActive: active}),
 
   setPlayerName: (name) => set({playerName: name}),
+  setPinCode: (pin) => set({pinCode: pin}),
   clearError: () => set({error: null}),
 
-  leaveRoom: (roomId) => {
-	const {socket} = get();
-	if (socket) socket.emit('leaveRoom', roomId);
-	set({gameState: null, isScannerActive: false, isReviewingCards: false});
+  login: (name, pin) => {
+	return new Promise((resolve) => {
+	  const { socket } = get();
+	  if (!socket) return resolve(false);
+	  socket.emit('login', name, pin, (response: any) => {
+		if (response.success) {
+		  const user = response.user;
+		  set({ playerId: user.id, playerName: user.username, pinCode: user.pinCode, error: null });
+		  sessionStorage.setItem('timebomb_session', JSON.stringify({
+			id: user.id,
+			username: user.username,
+			pinCode: user.pinCode
+		  }));
+		  resolve(true);
+		} else {
+		  set({ error: response.error });
+		  resolve(false);
+		}
+	  });
+	});
+  },
+
+  logout: () => {
+	sessionStorage.removeItem('timebomb_session');
+	set({ playerId: '', playerName: '', pinCode: '', gameState: null });
   },
 
   initSocket: () => {
@@ -54,35 +74,36 @@ export const useGameStore = create<GameStoreProps>((set, get) => ({
 	  set({gameState: newState, error: null});
 	});
 
-	socket.on('openRoomsList', (rooms: RoomInfo[]) => {
-	  set({openRooms: rooms});
-	});
-
-	socket.on('gameError', (msg: string) => {
-	  set({error: msg});
-	});
-
-	socket.on('loupeResult', (result: { success: boolean, targetName: string }) => {
+	socket.on('openRoomsList', (rooms: RoomInfo[]) => set({openRooms: rooms}));
+	socket.on('gameError', (msg: string) => set({error: msg}));
+	socket.on('loupeResult', (result) => {
 	  set({loupeAnimation: result, isScannerActive: false});
 	  setTimeout(() => set({loupeAnimation: null}), 3000);
 	});
 
-	// AUTO-RECONNEXION : Au démarrage, on demande au serveur si on est déjà dans une partie
+	socket.on('achievementsUnlocked', (unlockedData) => {
+	  const myId = get().playerId;
+	  const myUnlocks = unlockedData.find((d: any) => d.playerId === myId);
+	  if (myUnlocks) console.log("🏆 NOUVEAUX SUCCÈS : ", myUnlocks.unlockedAchievements);
+	});
+
 	socket.on('connect', () => {
-	  socket.emit('checkReconnection', get().playerId);
+	  const { playerId } = get();
+	  if (playerId) socket.emit('checkReconnection', playerId);
 	});
 
 	set({socket});
   },
 
+  // CORRECTION : Les arguments sont passés explicitement au socket
   createRoom: (name) => {
-	const {socket, playerId} = get();
-	if (socket) socket.emit('createRoom', name, playerId);
+	const {socket, playerId, playerName} = get();
+	if (socket) socket.emit('createRoom', name || playerName, playerId);
   },
 
   joinRoom: (roomId, name) => {
-	const {socket, playerId} = get();
-	if (socket) socket.emit('joinRoom', roomId, name, playerId);
+	const {socket, playerId, playerName} = get();
+	if (socket) socket.emit('joinRoom', roomId, name || playerName, playerId);
   },
 
   fetchOpenRooms: () => {
@@ -107,7 +128,30 @@ export const useGameStore = create<GameStoreProps>((set, get) => ({
 
   useLoupe: (roomId, targetPlayerId, cardId) => {
 	const {socket} = get();
-	if (socket) socket.emit('useLoupe', roomId, targetPlayerId, cardId);
-	set({isScannerActive: false});
+	if (socket) {
+	  socket.emit('useLoupe', roomId, targetPlayerId, cardId);
+	  set({isScannerActive: false});
+	}
   },
+
+  leaveRoom: (roomId) => {
+	const {socket} = get();
+	if (socket) socket.emit('leaveRoom', roomId);
+	set({gameState: null, isScannerActive: false, isReviewingCards: false});
+  },
+
+  confirmRole: (roomId) => {
+	const {socket} = get();
+	if (socket) socket.emit('confirmRole', roomId);
+  },
+
+  confirmCards: (roomId) => {
+	const {socket} = get();
+	if (socket) socket.emit('confirmCards', roomId);
+  },
+
+  restartGame: (roomId) => {
+	const {socket} = get();
+	if (socket) socket.emit('restartGame', roomId);
+  }
 }));

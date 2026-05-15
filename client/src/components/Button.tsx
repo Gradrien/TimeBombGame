@@ -8,6 +8,7 @@ type SteampunkButtonProps = {
   icon?: React.ReactNode;
   disabled?: boolean;
   onClick?: () => void;
+  className?: string;
 };
 
 const sizeStyles = {
@@ -49,6 +50,7 @@ export default function SteampunkButton({
 										  icon,
 										  disabled = false,
 										  onClick,
+										  className = "",
 										}: SteampunkButtonProps) {
   const currentSize = sizeStyles[size];
 
@@ -94,10 +96,11 @@ export default function SteampunkButton({
   return (
 	  <motion.button
 		  disabled={disabled}
-		  whileHover={disabled ? undefined : { scale: 1.03 }}
-		  whileTap={disabled ? undefined : { scale: 0.97 }}
+		  whileHover={disabled ? undefined : {scale: 1.03}}
+		  whileTap={disabled ? undefined : {scale: 0.97}}
 		  onClick={onClick}
 		  className={`
+		  ${className}
 			relative overflow-hidden
 			${currentSize.padding}
 			${currentSize.radius}
@@ -117,14 +120,13 @@ export default function SteampunkButton({
 			shadow-2xl
 			font-semibold
 			uppercase
-			tracking-wide
 			transition-all duration-300
 			select-none
 		  
 			before:absolute
 			before:inset-0
-			before:bg-gradient-to-b
-			before:from-white/[0.08]
+			before:bg-linear-to-b
+			before:from-white/8
 			before:to-transparent
 			before:pointer-events-none
 		  `}
@@ -164,8 +166,8 @@ export default function SteampunkButton({
 		<motion.div
 			animate={
 			  disabled
-				  ? { opacity: 0.05 }
-				  : { opacity: [0.12, 0.3, 0.12] }
+				  ? {opacity: 0.05}
+				  : {opacity: [0.12, 0.3, 0.12]}
 			}
 			transition={{
 			  duration: 2.5,
@@ -192,7 +194,7 @@ export default function SteampunkButton({
 		>
 		  {icon
 			  && React.cloneElement(icon as React.ReactElement, {
-				// @ts-ignore
+				// @ts-expect-error - On force la taille de l'icône pour qu'elle s'adapte au design, mais on laisse le développeur libre de passer n'importe quelle icône (même si elle ignore la prop "size")
 				size: currentSize.icon,
 				className: `
         ${currentVariant.icon}

@@ -21,6 +21,21 @@ export interface Player {
   secretCards?: CardType[];
 }
 
+export interface GameSessionStats {
+  firstCutBy: string | null;
+  isFirstCutBomb: boolean;
+  chouBlancAchieved: boolean;
+  cutsMade: Record<string, number>;
+  safeCablesCut: Record<string, number>;
+  defusesFoundOn: Record<string, number>;
+  loupesUsed: Record<string, number>;
+  loupesJammed: Record<string, number>;
+  bombCutter: string | null;
+  lastCutBy: string | null;
+  lastCutRound: number;
+  lastCutIndex: number;
+}
+
 export interface GameState {
   roomId: string;
   status: GameStatus;
@@ -36,6 +51,7 @@ export interface GameState {
   winner?: 'SHERLOCK' | 'MORIARTY';
   isLoupeModeEnabled?: boolean;
   teamHasLoupe?: boolean;
+  stats?: GameSessionStats;
 }
 
 export const GAME_CONFIG = {

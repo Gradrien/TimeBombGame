@@ -1,6 +1,24 @@
 import {Server, Socket} from 'socket.io';
-import type {GameState, ValidPlayerCount} from '@timebomb/shared';
+import {AchievementDef, ACHIEVEMENTS, GameState, ValidPlayerCount} from '@timebomb/shared';
 import {assignRoles, generateInitialDeck, distributeCards, gatherAndShuffleRemainingCards} from './gameEngine';
+import {
+  initGameSessionStats,
+  recordCut,
+  recordLoupe,
+  recordRoundEnd,
+  processEndGameStats
+} from './services/statsService';
+import {authenticatePlayer} from './services/authService';
+
+import 'dotenv/config';
+import {Pool} from 'pg';
+import {PrismaPg} from '@prisma/adapter-pg';
+import {PrismaClient} from "./generated/client/index";
+
+const pool = new Pool({connectionString: process.env.DATABASE_URL});
+const adapter = new PrismaPg(pool);
+
+const prisma = new PrismaClient({adapter});
 
 const activeRooms = new Map<string, GameState>();
 
@@ -19,7 +37,7 @@ function sanitizeStateForPlayer(gameState: GameState, targetPlayerId: string): G
 	  p.secretCards = p.cards.filter(c => !c.isRevealed).map(c => c.type);
 	} else {
 	  if (sanitized.status !== 'FINISHED') delete p.role;
-	  p.cards = p.cards.map(c => (c.isRevealed || c.isPublic) ? c : { ...c, type: 'SAFE' });
+	  p.cards = p.cards.map(c => (c.isRevealed || c.isPublic) ? c : {...c, type: 'SAFE'});
 	}
 	return p;
   });
@@ -37,6 +55,15 @@ function broadcastGameState(io: Server, roomId: string) {
 }
 
 export function setupSocketHandlers(io: Server, socket: Socket) {
+
+  socket.on('login', async (username: string, pin: string, callback: Function) => {
+	try {
+	  const user = await authenticatePlayer(username, pin);
+	  callback({success: true, user});
+	} catch (error: any) {
+	  callback({success: false, error: error.message});
+	}
+  });
 
   socket.on('checkReconnection', (playerId: string) => {
 	for (const [roomId, room] of activeRooms.entries()) {
@@ -129,6 +156,7 @@ export function setupSocketHandlers(io: Server, socket: Socket) {
 	room.totalDefusesNeeded = room.players.length;
 	room.playerWithClippers = room.players[randomIndex].id;
 	room.teamHasLoupe = false; // Reset du joker
+	room.stats = initGameSessionStats();
 
 	assignRoles(room.players, room.isLoupeModeEnabled);
 	const deck = generateInitialDeck(room.players.length as ValidPlayerCount, room.isLoupeModeEnabled);
@@ -183,6 +211,10 @@ export function setupSocketHandlers(io: Server, socket: Socket) {
 	room.cardsRevealedThisRound++;
 	room.playerWithClippers = targetPlayerId;
 
+	if (room.stats) {
+	  recordCut(room.stats, me.id, targetPlayerId, card.type, room.currentRound, room.cardsRevealedThisRound);
+	}
+
 	if (card.type === 'BOMB') {
 	  room.status = 'FINISHED';
 	  room.winner = 'MORIARTY';
@@ -197,6 +229,11 @@ export function setupSocketHandlers(io: Server, socket: Socket) {
 	}
 
 	if (room.status === 'PLAYING' && room.cardsRevealedThisRound === room.players.length) {
+	  if (room.stats) {
+		const defusesThisRound = room.revealedCards.slice(-room.players.length).filter(c => c.type === 'DEFUSE').length;
+		recordRoundEnd(room.stats, defusesThisRound, false);
+	  }
+
 	  if (room.currentRound === 4) {
 		room.status = 'FINISHED';
 		room.winner = 'MORIARTY';
@@ -209,7 +246,85 @@ export function setupSocketHandlers(io: Server, socket: Socket) {
 		distributeCards(newDeck, room.players);
 	  }
 	}
+
+	if (room.status === 'FINISHED' && room.stats) {
+	  processEndGameStats(room, room.stats)
+		  .then(unlockedBadges => {
+			if (unlockedBadges && unlockedBadges.length > 0) {
+			  io.to(roomId).emit('achievementsUnlocked', unlockedBadges);
+			}
+		  })
+		  .catch(err => console.error("Erreur d'attribution des succès :", err));
+	}
+
 	broadcastGameState(io, roomId);
+  });
+
+  socket.on('getUserProfile', async (playerId, callback) => {
+	try {
+	  const user = await prisma.user.findUnique({
+		where: { id: playerId },
+		include: { achievements: true } // On récupère les succès de la nouvelle table
+	  });
+
+	  if (!user) return callback(null);
+
+	  const unlockedIds = user.achievements.map(a => a.achievementId);
+
+	  // Fonction de progression (déplacée du front vers le back)
+	  const getProgress = (achId: string) => {
+		if (achId.startsWith('DEMOLITION')) return user.bombsExploded || 0;
+		if (achId.startsWith('DOIGTS_FEE')) return user.cablesCut || 0;
+		if (achId.startsWith('ROI_STRATEGIE')) return user.gamesWon || 0;
+		if (achId.startsWith('SHERLOCK')) return user.winsSherlock || 0;
+		if (achId.startsWith('MORIARTY')) return user.winsMoriarty || 0;
+		if (achId.startsWith('OEIL_LYNX')) return user.loupesUsed || 0;
+		if (achId.startsWith('BROUILLEUR')) return user.cardsJammed || 0;
+		return unlockedIds.includes(achId) ? 1 : 0;
+	  };
+
+	  // Grouper et filtrer les paliers
+	  const groups: Record<string, AchievementDef[]> = {};
+	  Object.values(ACHIEVEMENTS).forEach((ach) => {
+		const baseId = ach.id.replace(/_\d+$/, '');
+		if (!groups[baseId]) groups[baseId] = [];
+		groups[baseId].push(ach);
+	  });
+
+	  const formattedAchievements: any[] = [];
+
+	  Object.values(groups).forEach((group) => {
+		group.sort((a, b) => (a.tier || 0) - (b.tier || 0));
+		let currentAch = group[0];
+		for (let i = 0; i < group.length; i++) {
+		  if (!unlockedIds.includes(group[i].id)) {
+			currentAch = group[i];
+			break;
+		  }
+		  currentAch = group[i];
+		}
+
+		const rawProgress = getProgress(currentAch.id);
+		const isOneShot = currentAch.target === undefined;
+		const progress = isOneShot ? rawProgress : Math.min(rawProgress, currentAch.target!);
+		const percent = !isOneShot ? Math.round((progress / currentAch.target!) * 100) : (unlockedIds.includes(currentAch.id) ? 100 : 0);
+
+		formattedAchievements.push({
+		  ...currentAch,
+		  isUnlocked: unlockedIds.includes(currentAch.id),
+		  progress,
+		  percent,
+		  isOneShot
+		});
+	  });
+
+	  // On renvoie l'objet formaté complet
+	  callback({ ...user, formattedAchievements });
+
+	} catch (error) {
+	  console.error("Erreur profil:", error);
+	  callback(null);
+	}
   });
 
   socket.on('useLoupe', (roomId: string, targetPlayerId: string, cardId: string) => {
@@ -242,6 +357,12 @@ export function setupSocketHandlers(io: Server, socket: Socket) {
 	}
 
 	const isSuccess = Math.random() <= successChance;
+
+	const me = room.players.find(p => p.socketId === socket.id);
+	if (me && room.stats) {
+	  const isJammed = targetPlayer.role === 'BROUILLEUR' && !isSuccess;
+	  recordLoupe(room.stats, me.id, isJammed, isJammed ? targetPlayer.id : undefined);
+	}
 
 	if (isSuccess) {
 	  card.isPublic = true;
@@ -282,6 +403,7 @@ export function setupSocketHandlers(io: Server, socket: Socket) {
 	room.cardsRevealedThisRound = 0;
 	room.totalDefusesFound = 0;
 	room.teamHasLoupe = false;
+	delete room.stats;
 
 	room.players.forEach(p => {
 	  p.cards = [];
@@ -308,6 +430,36 @@ export function setupSocketHandlers(io: Server, socket: Socket) {
 		}
 		break;
 	  }
+	}
+  });
+
+  socket.on('updateUsername', async ({ playerId, newName }, callback) => {
+	try {
+	  // 1. Vérifier que le pseudo n'est pas déjà pris par quelqu'un d'autre
+	  const existingUser = await prisma.user.findUnique({ where: { username: newName } });
+	  if (existingUser && existingUser.id !== playerId) {
+		return callback({ success: false, error: "Ce pseudo est déjà utilisé par un autre agent." });
+	  }
+
+	  // 2. Mettre à jour en BDD
+	  await prisma.user.update({
+		where: { id: playerId },
+		data: { username: newName }
+	  });
+
+	  // 3. (Optionnel) Mettre à jour le nom dans la room active si le joueur est en jeu
+	  for (const [roomId, room] of activeRooms.entries()) {
+		const player = room.players.find(p => p.id === playerId);
+		if (player) {
+		  player.name = newName;
+		  broadcastGameState(io, roomId);
+		}
+	  }
+
+	  callback({ success: true });
+	} catch (error) {
+	  console.error("Erreur updateUsername:", error);
+	  callback({ success: false, error: "Erreur serveur lors de la mise à jour." });
 	}
   });
 }

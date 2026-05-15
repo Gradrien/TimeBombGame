@@ -32,7 +32,7 @@ export function RoleReveal({role, revealed, isReady, isConfirming, onReveal}: Ro
 		  {/* TEXTE CINÉMATIQUE (TU ES...) */}
 		  <div
 			  className={`text-center mb-4 sm:mb-6 landscape:mb-2 transition-all duration-700 ${revealed ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}>
-			<p className="text-white font-bold tracking-[0.4em] uppercase text-[10px] sm:text-xs mb-1">Tu es...</p>
+			<p className="text-white font-bold tracking-[0.4em] uppercase text-xs sm:text-xs mb-1">Tu es...</p>
 			<h1 className={`text-4xl sm:text-6xl landscape:text-3xl font-black italic tracking-widest uppercase drop-shadow-2xl ${theme.color}`}>
 			  {theme.name}
 			</h1>
@@ -50,7 +50,7 @@ export function RoleReveal({role, revealed, isReady, isConfirming, onReveal}: Ro
 			  {showClickText && (
 				  <div className="absolute inset-0 flex items-center justify-center">
                 <span
-					className="bg-black/60 px-4 py-2 rounded-full border border-white/20 text-white text-[10px] sm:text-xs font-bold tracking-widest uppercase animate-pulse shadow-xl">
+					className="bg-black/60 px-4 py-2 rounded-full border border-white/20 text-white text-xs sm:text-xs font-bold tracking-widest uppercase animate-pulse shadow-xl">
                   Cliquez
                 </span>
 				  </div>

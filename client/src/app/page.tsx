@@ -3,9 +3,9 @@
 import { useEffect } from 'react';
 import { useGameStore } from '@/store/useGameStore';
 import { GameBoard } from '@/components/GameBoard';
-import { PhaseView } from '@/components/PhaseView';
-import { HomeView } from '@/components/HomeView';
-import { LobbyView } from '@/components/LobbyView';
+import { PhaseView } from '@/components/views/PhaseView';
+import { HomeView } from '@/components/views/HomeView';
+import { LobbyView } from '@/components/views/LobbyView';
 import { EndView } from '@/components/EndView';
 import {SettingsMenu} from "@/components/SettingsMenu";
 

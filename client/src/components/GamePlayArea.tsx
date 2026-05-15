@@ -48,7 +48,7 @@ export function GamePlayArea({
 		{/* INDICATEUR DE TOUR */}
 		<div className="absolute top-0 left-0 right-0 py-2 flex justify-center z-20">
 		  <div className="bg-black/60 border border-amber-900/40 px-6 py-1 rounded-full shadow-lg backdrop-blur-sm">
-			<p className="text-xs sm:text-sm font-serif italic text-zinc-100 tracking-widest">
+			<p className="text-sm font-serif italic text-zinc-100 tracking-widest">
 			  {iHaveClippers
 				  ? "C'est à TOI de couper !"
 				  : `Au tour de ${activePlayerName} de couper...`}
@@ -60,7 +60,7 @@ export function GamePlayArea({
 		{isScannerActive && hasEnoughHiddenCards && (
 			<div
 				className="absolute top-16 z-20 bg-blue-900/50 border border-blue-500/50 px-4 py-1 rounded-full backdrop-blur-sm animate-bounce">
-			  <p className="text-[10px] sm:text-xs text-blue-200 font-bold uppercase tracking-widest drop-shadow-md">
+			  <p className="text-xs sm:text-xs text-blue-200 font-bold uppercase tracking-widest drop-shadow-md">
 				Ciblez une carte de {viewedPlayer.name}
 			  </p>
 			</div>

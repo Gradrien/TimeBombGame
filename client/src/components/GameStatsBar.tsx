@@ -57,7 +57,7 @@ export function GameStatsBar({
 			  <span className="text-lg font-black text-red-400">{dist.red}</span>
 			</div>
 		  </div>
-		  <p className="text-[10px] text-amber-600 uppercase tracking-[0.2em] font-black">MANCHE {currentRound}</p>
+		  <p className="text-xs text-amber-600 uppercase tracking-[0.2em] font-black">MANCHE {currentRound}</p>
 		</div>
 
 		{/* CENTRE : BOUTON LOUPE STEAMPUNK */}
@@ -71,7 +71,7 @@ export function GameStatsBar({
 
 		{/* Cimetière */}
 		<div className="flex flex-col items-end gap-1">
-		  <p className="text-[10px] font-black text-green-500 tracking-widest uppercase">DÉSARMÉS: {defusesFound}/{defusesNeeded}</p>
+		  <p className="text-xs font-black text-green-500 tracking-widest uppercase">DÉSARMÉS: {defusesFound}/{defusesNeeded}</p>
 		  <div className="flex overflow-x-auto pl-6 py-1 items-center no-scrollbar max-w-30">
 			{revealedCards?.map((card: CardType, i: number) => (
 				<div key={i} className="relative w-8 h-12 shrink-0 -ml-5 first:ml-0 drop-shadow-xl" style={{zIndex: i}}>

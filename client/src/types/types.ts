@@ -31,12 +31,6 @@ export interface GameStatsBarProps {
   revealedCards: CardType[];
 }
 
-export interface LobbyViewProps {
-  gameState: GameState;
-  playerName: string;
-  onStart: () => void;
-}
-
 export interface RoleRevealProps {
   role: string;
   revealed: boolean;
@@ -62,8 +56,11 @@ export interface RoomInfo {
 export interface GameStoreProps {
   socket: Socket | null;
   gameState: GameState | null;
+
   playerName: string;
   playerId: string;
+  pinCode: string;
+
   isAnimatingCut: boolean;
   openRooms: RoomInfo[];
   error: string | null;
@@ -75,8 +72,14 @@ export interface GameStoreProps {
   useLoupe: (roomId: string, targetPlayerId: string, cardId: string) => void;
 
   setPlayerName: (name: string) => void;
+  setPinCode: (pin: string) => void;
+
   clearError: () => void;
   initSocket: () => void;
+
+  login: (name: string, pin: string) => Promise<boolean>;
+  logout: () => void;
+
   createRoom: (name: string) => void;
   joinRoom: (roomId: string, name: string) => void;
   fetchOpenRooms: () => void;
@@ -86,4 +89,8 @@ export interface GameStoreProps {
   leaveRoom: (roomId: string) => void;
   isReviewingCards: boolean;
   setReviewingCards: (val: boolean) => void;
+
+  confirmRole: (roomId: string) => void;
+  confirmCards: (roomId: string) => void;
+  restartGame: (roomId: string) => void;
 }

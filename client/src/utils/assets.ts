@@ -12,8 +12,17 @@ export const getCardImage = (type?: string) => {
   return '/assets/card-safe.png';
 };
 
+export const getBadgeImage = (achId: string) => {
+  const baseId = achId.replace(/_\d+$/, '');
+
+  const formattedId = baseId.toLowerCase().replace(/_/g, '-');
+
+  return `/assets/badges/${formattedId}.png`;
+};
+
 export const ASSETS = {
   CARD_BACK: '/assets/card-back.png',
   ROLE_BACK: '/assets/role-back.png',
   CLIPPER: '/assets/clipper.png',
+  BADGE_PLACEHOLDER: '/assets/badges/placeholder.png',
 };

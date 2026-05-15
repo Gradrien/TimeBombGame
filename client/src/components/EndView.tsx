@@ -37,7 +37,7 @@ export function EndView() {
 					</div>
 
 					<span
-						className={`text-[10px] sm:text-xs font-bold truncate w-full text-center ${p.id === playerId ? 'text-amber-500' : 'text-zinc-400'}`}>
+						className={`text-xs sm:text-xs font-bold truncate w-full text-center ${p.id === playerId ? 'text-amber-500' : 'text-zinc-400'}`}>
                   {p.name} {p.id === playerId && '(Toi)'}
                  </span>
 				  </div>

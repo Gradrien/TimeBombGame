@@ -2,6 +2,7 @@ import express from 'express';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
 import { setupSocketHandlers } from './roomManager';
+import 'dotenv/config';
 
 const app = express();
 const httpServer = createServer(app);
