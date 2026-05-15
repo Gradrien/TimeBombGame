@@ -3,11 +3,11 @@ FROM node:20-alpine
 WORKDIR /app
 
 # Copie uniquement les fichiers de dépendances d'abord (pour le cache Docker)
-COPY package.json package-lock.json ./
+COPY package.json ./
 COPY prisma ./prisma/
 
 # Installation propre
-RUN npm ci
+RUN npm install
 
 # Génération du client Prisma
 RUN npx prisma generate

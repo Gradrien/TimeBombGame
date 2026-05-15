@@ -8,8 +8,8 @@ WORKDIR /app
 RUN apk add --no-cache libc6-compat
 
 # Copie uniquement des fichiers de dépendances
-COPY package.json package-lock.json* ./
-RUN npm ci
+COPY package.json ./
+RUN npm install
 
 # ==========================================
 # 2. ÉTAPE DE BUILD
