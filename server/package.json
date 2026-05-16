@@ -6,7 +6,7 @@
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "build": "echo 'Pas de build complexe nécessaire, on utilise tsx'",
+    "build": "npx prisma generate",
     "start": "NODE_ENV=production tsx src/index.ts",
     "dev": "tsx watch src/index.ts",
     "seed": "tsx prisma/seed.ts"
