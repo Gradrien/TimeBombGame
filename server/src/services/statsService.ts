@@ -190,6 +190,11 @@ export async function processEndGameStats(room: GameState, stats: GameSessionSta
 	  newAch.push('CREDIBILITE_MAX');
 	}
 
+	// Collabo : Se faire trouver 3 câbles en étant Moriarty (Nouveau succès)
+	if (player.role === 'MORIARTY' && (stats.defusesFoundOn[player.id] || 0) >= 3 && !currentAch.includes('COLLABO')) {
+	  newAch.push('COLLABO');
+	}
+
 	// In extremis : Couper le dernier câble à la dernière coupe du round 4
 	if (winner === 'SHERLOCK' && stats.lastCutRound === 4 && stats.lastCutIndex === totalPlayers && stats.lastCutBy === player.id && !currentAch.includes('IN_EXTREMIS')) {
 	  newAch.push('IN_EXTREMIS');

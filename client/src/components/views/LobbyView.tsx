@@ -1,10 +1,15 @@
 // client/src/components/LobbyView.tsx
-import {useGameStore} from '@/store/useGameStore';
+import { useState } from 'react';
+import { useGameStore } from '@/store/useGameStore';
 import SteampunkButton from "@/components/Button";
-import type {LobbyViewProps} from "@/types/views";
+import type { LobbyViewProps } from "@/types/views";
+import { Info } from 'lucide-react';
+import { LoupeWikiModal } from '@/components/LoupeWikiModal';
 
 export function LobbyView({gameState, playerName, onStart}: LobbyViewProps) {
   const {toggleLoupeMode, leaveRoom} = useGameStore();
+  const [isWikiOpen, setIsWikiOpen] = useState(false);
+
   const isHost = gameState.players.find((p) => p.name === playerName)?.isHost;
   const canStart = gameState.players.length >= 4 && gameState.players.length <= 8;
   const canUseLoupe = gameState.players.length >= 5;
@@ -19,9 +24,19 @@ export function LobbyView({gameState, playerName, onStart}: LobbyViewProps) {
 		  <div className="absolute inset-0 opacity-10 pointer-events-none" style={{ backgroundImage: "repeating-linear-gradient(45deg, rgba(255,255,255,0.05) 0px, rgba(255,255,255,0.05) 2px, transparent 2px, transparent 6px)" }} />
 
 		  <div className="flex items-center justify-between relative z-10">
-            <span className="font-serif tracking-wide text-sm text-[#f3e7d3] uppercase drop-shadow-md font-bold">
-              Extension Loupe
-            </span>
+			{/* LabeL + Info Icon */}
+			<div className="flex items-center gap-3">
+              <span className="font-serif tracking-wide text-sm text-[#f3e7d3] uppercase drop-shadow-md font-bold">
+                Extension Loupe
+              </span>
+			  <button
+				  onClick={() => setIsWikiOpen(true)}
+				  className="text-[#8a6842] hover:text-[#60a5fa] hover:drop-shadow-[0_0_8px_rgba(96,165,250,0.6)] transition-all cursor-help"
+				  title="Comment fonctionne l'extension ?"
+			  >
+				<Info size={18} />
+			  </button>
+			</div>
 
 			{/* Toggle Steampunk allégé */}
 			{isHost ? (
@@ -82,6 +97,12 @@ export function LobbyView({gameState, playerName, onStart}: LobbyViewProps) {
 			Quitter le lobby
 		  </SteampunkButton>
 		</div>
+
+		{/* Modale d'aide de la Loupe */}
+		<LoupeWikiModal
+			isOpen={isWikiOpen}
+			onClose={() => setIsWikiOpen(false)}
+		/>
 	  </main>
   );
 }
