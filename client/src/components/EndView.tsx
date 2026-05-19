@@ -1,6 +1,6 @@
 import Image from 'next/image';
 import {useGameStore} from '@/store/useGameStore';
-import {getRoleImage} from '@/utils/assets';
+import {getRoleCard} from '@/utils/assets';
 import SteampunkButton from "@/components/Button";
 
 export function EndView() {
@@ -33,7 +33,7 @@ export function EndView() {
 					   className={`relative flex flex-col items-center justify-center w-fit p-3 bg-black/50 rounded-xl border ${p.id === playerId ? 'border-amber-500 shadow-[0_0_15px_rgba(245,158,11,0.2)]' : 'border-zinc-800'}`}>
 
 					<div className="relative w-16 h-24 sm:w-24 sm:h-36 mb-2">
-					  <Image src={getRoleImage(p.role)} alt="Role" fill className="object-contain drop-shadow-md"/>
+					  <Image src={getRoleCard(p.role)} alt="Role" fill className="object-contain drop-shadow-md"/>
 					</div>
 
 					<span

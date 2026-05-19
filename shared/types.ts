@@ -59,15 +59,39 @@ export const GAME_CONFIG = {
   5: {roles: ['SHERLOCK', 'SHERLOCK', 'SHERLOCK', 'MORIARTY', 'MORIARTY'], safe: 19, defuse: 5, bomb: 1},
   6: {roles: ['SHERLOCK', 'SHERLOCK', 'SHERLOCK', 'SHERLOCK', 'MORIARTY', 'MORIARTY'], safe: 23, defuse: 6, bomb: 1},
   7: {
-    roles: ['SHERLOCK', 'SHERLOCK', 'SHERLOCK', 'SHERLOCK', 'SHERLOCK', 'MORIARTY', 'MORIARTY', 'MORIARTY'],
-    safe: 27,
-    defuse: 7,
-    bomb: 1
+	roles: ['SHERLOCK', 'SHERLOCK', 'SHERLOCK', 'SHERLOCK', 'SHERLOCK', 'MORIARTY', 'MORIARTY', 'MORIARTY'],
+	safe: 27,
+	defuse: 7,
+	bomb: 1
   },
   8: {
-    roles: ['SHERLOCK', 'SHERLOCK', 'SHERLOCK', 'SHERLOCK', 'SHERLOCK', 'MORIARTY', 'MORIARTY', 'MORIARTY'],
-    safe: 31,
-    defuse: 8,
-    bomb: 1
+	roles: ['SHERLOCK', 'SHERLOCK', 'SHERLOCK', 'SHERLOCK', 'SHERLOCK', 'MORIARTY', 'MORIARTY', 'MORIARTY'],
+	safe: 31,
+	defuse: 8,
+	bomb: 1
+  },
+  9: {
+	roles: ['SHERLOCK', 'SHERLOCK', 'SHERLOCK', 'SHERLOCK', 'SHERLOCK', 'SHERLOCK', 'MORIARTY', 'MORIARTY', 'MORIARTY', 'MORIARTY'],
+	safe: 35,
+	defuse: 9,
+	bomb: 1
+  },
+  10: {
+	roles: ['SHERLOCK', 'SHERLOCK', 'SHERLOCK', 'SHERLOCK', 'SHERLOCK', 'SHERLOCK', 'MORIARTY', 'MORIARTY', 'MORIARTY', 'MORIARTY'],
+	safe: 39,
+	defuse: 10,
+	bomb: 1
+  },
+  11: {
+	roles: ['SHERLOCK', 'SHERLOCK', 'SHERLOCK', 'SHERLOCK', 'SHERLOCK', 'SHERLOCK', 'SHERLOCK', 'MORIARTY', 'MORIARTY', 'MORIARTY', 'MORIARTY'],
+	safe: 43,
+	defuse: 11,
+	bomb: 1
+  },
+  12: {
+	roles: ['SHERLOCK', 'SHERLOCK', 'SHERLOCK', 'SHERLOCK', 'SHERLOCK', 'SHERLOCK', 'SHERLOCK', 'SHERLOCK', 'MORIARTY', 'MORIARTY', 'MORIARTY', 'MORIARTY'],
+	safe: 47,
+	defuse: 12,
+	bomb: 1
   },
 } as const;

@@ -11,7 +11,7 @@ export function LobbyView({gameState, playerName, onStart}: LobbyViewProps) {
   const [isWikiOpen, setIsWikiOpen] = useState(false);
 
   const isHost = gameState.players.find((p) => p.name === playerName)?.isHost;
-  const canStart = gameState.players.length >= 4 && gameState.players.length <= 8;
+  const canStart = gameState.players.length >= 4 && gameState.players.length <= 12;
   const canUseLoupe = gameState.players.length >= 5;
 
   return (
@@ -90,7 +90,7 @@ export function LobbyView({gameState, playerName, onStart}: LobbyViewProps) {
 		<div className="flex flex-col gap-4 w-full max-w-xs z-10">
 		  {isHost && (
 			  <SteampunkButton variant="sherlock" size="lg" onClick={onStart} disabled={!canStart}>
-				{canStart ? 'Lancer la partie' : '4 à 8 joueurs requis'}
+				{canStart ? 'Lancer la partie' : '4 à 12 joueurs requis'}
 			  </SteampunkButton>
 		  )}
 		  <SteampunkButton variant="moriarty" size="lg" onClick={() => leaveRoom(gameState.roomId)}>

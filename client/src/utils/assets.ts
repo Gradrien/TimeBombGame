@@ -1,8 +1,15 @@
 export const getRoleImage = (role?: string, skinIndex: number = 1) => {
+  if (role === 'BROUILLEUR') return `/assets/characters/role-red-brouilleur.png`;
+  if (role === 'MORIARTY') return `/assets/characters/role-red-${skinIndex}.png`;
+  if (role === 'SHERLOCK') return `/assets/characters/role-blue-3.png`;
+  return '/assets/characters/role-back.png';
+};
+
+export const getRoleCard = (role?: string, skinIndex: number = 1) => {
   if (role === 'BROUILLEUR') return `/assets/roles/role-red-brouilleur.png`;
   if (role === 'MORIARTY') return `/assets/roles/role-red-${skinIndex}.png`;
   if (role === 'SHERLOCK') return `/assets/roles/role-blue-${skinIndex}.png`;
-  return '/assets/role-back.png';
+  return '/assets/roles/role-back.png';
 };
 
 export const getCardImage = (type?: string) => {

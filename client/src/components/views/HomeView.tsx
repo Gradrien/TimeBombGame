@@ -23,8 +23,9 @@ export function HomeView() {
   const displayError = localError || error;
 
   return (
-	  <main
-		  className="flex min-h-screen flex-col items-center justify-center bg-black/40 text-white p-6 relative overflow-hidden">
+	  <main className="flex min-h-screen flex-col items-center justify-center text-white p-6 relative overflow-hidden">
+		{/* Overlay de fond fixe pour éviter les défauts visuels lors du drag/overscroll */}
+		<div className="fixed inset-0 bg-black/40 -z-10 pointer-events-none" />
 
 		{/* 1. LOGO TIME BOMB */}
 		{view !== 'PROFILE' && (

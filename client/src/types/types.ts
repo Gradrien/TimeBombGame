@@ -34,9 +34,10 @@ export interface GameStatsBarProps {
 export interface RoleRevealProps {
   role: string;
   revealed: boolean;
-  isReady: boolean;
   isConfirming: boolean;
   onReveal: () => void;
+  skinIndex?: number;
+  onConfirm: () => void;
 }
 
 export interface TopNavBarProps {
