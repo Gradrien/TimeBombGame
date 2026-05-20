@@ -7,7 +7,7 @@ const SOCKET_URL = process.env.NEXT_PUBLIC_SOCKET_URL || 'http://localhost:3001'
 
 const getSavedSession = () => {
   if (typeof window === 'undefined') return null;
-  const saved = localStorage.getItem('timebomb_session');
+  const saved = sessionStorage.getItem('timebomb_session');
   return saved ? JSON.parse(saved) : null;
 };
 
@@ -42,7 +42,7 @@ export const useGameStore = create<GameStoreProps>((set, get) => ({
 		if (response.success) {
 		  const user = response.user;
 		  set({ playerId: user.id, playerName: user.username, pinCode: user.pinCode, error: null });
-		  localStorage.setItem('timebomb_session', JSON.stringify({
+		  sessionStorage.setItem('timebomb_session', JSON.stringify({
 			id: user.id,
 			username: user.username,
 			pinCode: user.pinCode
@@ -57,7 +57,7 @@ export const useGameStore = create<GameStoreProps>((set, get) => ({
   },
 
   logout: () => {
-	localStorage.removeItem('timebomb_session');
+	sessionStorage.removeItem('timebomb_session');
 	set({ playerId: '', playerName: '', pinCode: '', gameState: null });
   },
 

@@ -1,15 +1,5 @@
-import  {GAME_CONFIG, Card, Role, Player, ValidPlayerCount } from '@timebomb/shared';
+import {GAME_CONFIG, Card, Role, Player, ValidPlayerCount, shuffleArray} from '@timebomb/shared';
 import {randomUUID} from 'crypto';
-
-// Algorithme de mélange Fisher-Yates
-export function shuffleArray<T>(array: readonly T[]): T[] {
-  const newArray = [...array];
-  for (let i = newArray.length - 1; i > 0; i--) {
-	const j = Math.floor(Math.random() * (i + 1));
-	[newArray[i], newArray[j]] = [newArray[j], newArray[i]];
-  }
-  return newArray;
-}
 
 export function assignRoles(players: Player[], useLoupe: boolean = false): void {
   const count = players.length as ValidPlayerCount;

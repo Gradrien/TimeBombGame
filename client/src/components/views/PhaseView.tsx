@@ -3,6 +3,7 @@ import {useGameStore} from '@/store/useGameStore';
 import {RoleReveal} from '@/components/RoleReveal';
 import {CardReveal} from '@/components/CardReveal';
 import SteampunkButton from "@/components/Button";
+import { shuffleArray } from '@timebomb/shared';
 
 export function PhaseView() {
   const {gameState, socket, playerId} = useGameStore();
@@ -21,7 +22,7 @@ export function PhaseView() {
 	if (gameState?.phase === 'CARD_REVEAL') {
 	  const me = gameState.players.find(p => p.id === playerId);
 	  if (me?.secretCards) {
-		setShuffledCards([...me.secretCards].sort(() => Math.random() - 0.5));
+		setShuffledCards(shuffleArray([...me.secretCards]));
 	  }
 	}
   }, [gameState?.phase, gameState?.currentRound, playerId]);
@@ -52,7 +53,7 @@ export function PhaseView() {
   const handleConfirm = () => {
 	setIsConfirming(true);
 	if (gameState.phase === 'ROLE_REVEAL') {
-	  // ON SUPPRIME le setRevealed(false); ici !
+	  setRevealed(false);
 	  setTimeout(() => socket.emit('confirmRole', gameState.roomId), 500);
 	} else {
 	  setFlippedIndices([]);

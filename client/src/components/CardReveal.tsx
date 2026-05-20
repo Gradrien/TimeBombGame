@@ -41,13 +41,13 @@ export function CardReveal({ cards, flippedIndices, isShuffling }: CardRevealPro
 		controls.set({ x: -100 });
 
 		// ÉTAPE 3 : Pause "Mélange" (Écran vide)
-		await new Promise(resolve => setTimeout(resolve, 2000));
+		await new Promise(resolve => setTimeout(resolve, 500));
 
 		// ÉTAPE 4 : Redistribution Poker
 		await controls.start((i) => ({
 		  opacity: 1,
 		  x: 0,
-		  transition: { type: "spring", stiffness: 200, damping: 20, delay: i * 0.15 }
+		  transition: { type: "spring", stiffness: 200, damping: 20, delay: i * 0.05 }
 		}));
 
 		hasDealt.current = true;
@@ -60,7 +60,7 @@ export function CardReveal({ cards, flippedIndices, isShuffling }: CardRevealPro
 		  await controls.start((i) => ({
 			opacity: 1,
 			x: 0,
-			transition: { type: "spring", stiffness: 200, damping: 20, delay: i * 0.15 }
+			transition: { type: "spring", stiffness: 200, damping: 20, delay: i * 0.05 }
 		  }));
 		  hasDealt.current = true;
 		}

@@ -1,7 +1,7 @@
 export const getRoleImage = (role?: string, skinIndex: number = 1) => {
   if (role === 'BROUILLEUR') return `/assets/characters/role-red-brouilleur.png`;
   if (role === 'MORIARTY') return `/assets/characters/role-red-${skinIndex}.png`;
-  if (role === 'SHERLOCK') return `/assets/characters/role-blue-3.png`;
+  if (role === 'SHERLOCK') return `/assets/characters/role-blue-${skinIndex}.png`;
   return '/assets/characters/role-back.png';
 };
 
