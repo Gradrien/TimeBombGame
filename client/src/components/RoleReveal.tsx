@@ -38,7 +38,12 @@ export function RoleReveal({
   const characterImg = getRoleImage(role, skinIndex);
 
   return (
-	  <div className="fixed inset-0 z-50 bg-[#0a0a0a] overflow-hidden flex items-center justify-center">
+	  <motion.div
+		  initial={{ opacity: 0 }}
+		  animate={{ opacity: 1 }}
+		  exit={{ opacity: 0, transition: { duration: 0.2 } }}
+		  className="fixed inset-0 z-[100] bg-[#0a0a0a] overflow-hidden flex items-center justify-center"
+	  >
 		{/* Background : Texture Steampunk sombre */}
 		<div className="absolute inset-0 opacity-10 pointer-events-none"
 			 style={{ backgroundImage: "url('/assets/textures/metal_plate.png')", backgroundSize: 'cover' }} />
@@ -155,6 +160,6 @@ export function RoleReveal({
 		</AnimatePresence>
 
 		<div className="absolute inset-0 pointer-events-none opacity-[0.02] bg-[url('/assets/textures/noise.png')]" />
-	  </div>
+	  </motion.div>
   );
 }

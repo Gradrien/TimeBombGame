@@ -2,7 +2,7 @@ import Image from 'next/image';
 import { ASSETS } from '@/utils/assets';
 import type {TopNavBarProps} from "@/types/types";
 
-export function TopNavBar({ me, opponents, viewedPlayerId, setViewedPlayerId, playerWithClippers, iHaveClippers }: TopNavBarProps) {
+export function TopNavBar({ me, opponents, viewedPlayerId, setViewedPlayerId, playerWithClippers }: TopNavBarProps) {
   const isViewingOpponent = viewedPlayerId !== null && viewedPlayerId !== me.id;
 
   return (
@@ -28,7 +28,6 @@ export function TopNavBar({ me, opponents, viewedPlayerId, setViewedPlayerId, pl
 				onClick={() => setViewedPlayerId(opp.id)}
 				className={`px-5 py-2 rounded-md font-serif tracking-widest transition-all border flex items-center gap-2 shadow-sm text-sm sm:text-base
             ${viewedPlayerId === opp.id ? 'bg-zinc-300 border-zinc-300 text-black shadow-[0_0_10px_rgba(255,255,255,0.2)]' : 'bg-black/40 border-zinc-700 text-zinc-300 hover:border-zinc-500 hover:text-zinc-100'}
-            ${iHaveClippers && viewedPlayerId !== opp.id ? 'animate-pulse border-zinc-400 text-zinc-100' : ''} 
           `}
 			>
 			  {opp.name}

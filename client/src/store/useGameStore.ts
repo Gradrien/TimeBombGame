@@ -26,6 +26,9 @@ export const useGameStore = create<GameStoreProps>((set, get) => ({
   isReviewingCards: false,
   setReviewingCards: (val) => set({isReviewingCards: val}),
 
+  isReviewingRole: false,
+  setReviewingRole: (val) => set({isReviewingRole: val}),
+
   loupeAnimation: null,
   isScannerActive: false,
   setScannerActive: (active) => set({isScannerActive: active}),
@@ -65,6 +68,21 @@ export const useGameStore = create<GameStoreProps>((set, get) => ({
 	if (get().socket) return;
 	const socket = io(SOCKET_URL);
 
+	socket.on('connect', () => {
+	  const { playerId } = get();
+	  if (playerId) socket.emit('checkReconnection', playerId);
+	});
+
+	if (typeof window !== 'undefined' && !(window as any)._hasVisibilityHandler) {
+	  (window as any)._hasVisibilityHandler = true;
+	  document.addEventListener("visibilitychange", () => {
+		const currentSocket = get().socket;
+		if (document.visibilityState === 'visible' && currentSocket?.disconnected) {
+		  currentSocket.connect();
+		}
+	  });
+	}
+
 	socket.on('gameStateUpdated', (newState: GameState) => {
 	  const currentState = get().gameState;
 	  if (currentState && newState.revealedCards && currentState.revealedCards && newState.revealedCards.length > currentState.revealedCards.length) {
@@ -85,11 +103,6 @@ export const useGameStore = create<GameStoreProps>((set, get) => ({
 	  const myId = get().playerId;
 	  const myUnlocks = unlockedData.find((d: any) => d.playerId === myId);
 	  if (myUnlocks) console.log("🏆 NOUVEAUX SUCCÈS : ", myUnlocks.unlockedAchievements);
-	});
-
-	socket.on('connect', () => {
-	  const { playerId } = get();
-	  if (playerId) socket.emit('checkReconnection', playerId);
 	});
 
 	set({socket});

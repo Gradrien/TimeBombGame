@@ -103,7 +103,8 @@ export function setupSocketHandlers(io: Server, socket: Socket) {
 	  isLoupeModeEnabled: false,
 	  teamHasLoupe: false,
 	  revealedCards: [],
-	  readyPlayers: []
+	  readyPlayers: [],
+	  surrenderVotes: [],
 	};
 
 	room.players.push({id: playerId, name: playerName, cards: [], isHost: true, socketId: socket.id});
@@ -403,6 +404,7 @@ export function setupSocketHandlers(io: Server, socket: Socket) {
 	room.cardsRevealedThisRound = 0;
 	room.totalDefusesFound = 0;
 	room.teamHasLoupe = false;
+	room.surrenderVotes = [];
 	delete room.stats;
 
 	room.players.forEach(p => {
@@ -461,5 +463,42 @@ export function setupSocketHandlers(io: Server, socket: Socket) {
 	  console.error("Erreur updateUsername:", error);
 	  callback({ success: false, error: "Erreur serveur lors de la mise à jour." });
 	}
+  });
+
+  socket.on('voteSurrender', (roomId: string, playerId: string) => {
+	const room = activeRooms.get(roomId);
+	if (!room || room.status !== 'PLAYING') return;
+
+	if (!room.surrenderVotes) room.surrenderVotes = [];
+	if (!room.surrenderVotes.includes(playerId)) {
+	  room.surrenderVotes.push(playerId);
+	}
+
+	// Majorité absolue
+	const requiredVotes = Math.floor(room.players.length / 2) + 1;
+
+	if (room.surrenderVotes.length >= requiredVotes) {
+	  // Le vote passe, retour au lobby
+	  room.status = 'LOBBY';
+	  room.phase = 'NOT_STARTED';
+	  room.surrenderVotes = [];
+	  room.readyPlayers = [];
+	  room.revealedCards = [];
+	  room.currentRound = 1;
+	  room.cardsRevealedThisRound = 0;
+	  room.totalDefusesFound = 0;
+	  room.teamHasLoupe = false;
+	  delete room.stats;
+
+	  room.players.forEach(p => {
+		p.cards = [];
+		p.secretCards = [];
+		delete p.role;
+	  });
+
+	  io.to(roomId).emit('gameSurrendered');
+	}
+
+	broadcastGameState(io, roomId);
   });
 }

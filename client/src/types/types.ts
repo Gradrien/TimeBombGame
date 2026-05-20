@@ -46,7 +46,6 @@ export interface TopNavBarProps {
   viewedPlayerId: string | null;
   setViewedPlayerId: (id: string | null) => void;
   playerWithClippers: string;
-  iHaveClippers: boolean;
 }
 
 export interface RoomInfo {
@@ -94,4 +93,7 @@ export interface GameStoreProps {
   confirmRole: (roomId: string) => void;
   confirmCards: (roomId: string) => void;
   restartGame: (roomId: string) => void;
+
+  isReviewingRole: boolean,
+  setReviewingRole: (val: boolean) => void;
 }

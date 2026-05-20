@@ -1,3 +1,5 @@
+import {GameState, Player} from "@timebomb/shared"
+
 export const getRoleImage = (role?: string, skinIndex: number = 1) => {
   if (role === 'BROUILLEUR') return `/assets/characters/role-red-brouilleur.png`;
   if (role === 'MORIARTY') return `/assets/characters/role-red-${skinIndex}.png`;
@@ -18,6 +20,17 @@ export const getCardImage = (type?: string) => {
   if (type === 'LOUPE') return '/assets/card-glasses.png';
   return '/assets/card-safe.png';
 };
+
+export function getPlayerSkinIndex(gameState: GameState, playerId: string, me: Player) {
+  const myPlayerIndex = gameState.players.findIndex(p => p.id === playerId);
+  let mySkinIndex = 1;
+  if (me.role === 'SHERLOCK') {
+    mySkinIndex = (myPlayerIndex % 5) + 1;
+  } else if (me.role === 'MORIARTY') {
+    mySkinIndex = (myPlayerIndex % 3) + 1;
+  }
+  return mySkinIndex;
+}
 
 export const getBadgeImage = (achId: string) => {
   const baseId = achId.replace(/_\d+$/, '');

@@ -30,7 +30,7 @@ export function GamePlayArea({
   };
 
   return (
-	  <div className="flex-1 flex flex-col items-center justify-center p-4 relative">
+	  <div className="flex-1 z-40 flex flex-col items-center justify-center p-4 relative">
 
 		{isReviewingCards && (
 			<div
@@ -59,7 +59,7 @@ export function GamePlayArea({
 		{/* MESSAGE D'AIDE SCANNER */}
 		{isScannerActive && hasEnoughHiddenCards && (
 			<div
-				className="absolute top-16 z-20 bg-blue-900/50 border border-blue-500/50 px-4 py-1 rounded-full backdrop-blur-sm animate-bounce">
+				className="absolute top-16 z-[100] bg-blue-900/50 border border-blue-500/50 px-4 py-1 rounded-full backdrop-blur-sm animate-bounce">
 			  <p className="text-xs sm:text-xs text-blue-200 font-bold uppercase tracking-widest drop-shadow-md">
 				Ciblez une carte de {viewedPlayer.name}
 			  </p>

@@ -4,6 +4,7 @@ import {RoleReveal} from '@/components/RoleReveal';
 import {CardReveal} from '@/components/CardReveal';
 import SteampunkButton from "@/components/Button";
 import { shuffleArray } from '@timebomb/shared';
+import {getPlayerSkinIndex} from "@/utils/assets";
 
 export function PhaseView() {
   const {gameState, socket, playerId} = useGameStore();
@@ -35,14 +36,7 @@ export function PhaseView() {
   const isReady = gameState.readyPlayers.includes(playerId) || isConfirming;
   const isFlipping = gameState.phase === 'CARD_REVEAL' && revealed && flippedIndices.length < shuffledCards.length;
 
-  const myPlayerIndex = gameState.players.findIndex(p => p.id === playerId);
-
-  let mySkinIndex = 1;
-  if (me.role === 'SHERLOCK') {
-	mySkinIndex = (myPlayerIndex % 5) + 1; // Boucle entre 1 et 5
-  } else if (me.role === 'MORIARTY') {
-	mySkinIndex = (myPlayerIndex % 3) + 1; // Boucle entre 1 et 3
-  }
+  const mySkinIndex = getPlayerSkinIndex(gameState, playerId, me);
 
   const revealCardsOneByOne = () => {
 	if (!shuffledCards.length || isShuffling || isReady) return;

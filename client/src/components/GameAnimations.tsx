@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import Image from 'next/image';
 import { useGameStore } from '@/store/useGameStore';
 import type { Card as CardType } from '@timebomb/shared';
@@ -21,6 +22,7 @@ export function GameAnimations() {
 	  const newCard = gameState.revealedCards[currentCount - 1];
 	  const isLastCutNext = gameState.cardsRevealedThisRound === gameState.players.length - 1;
 	  const isFinished = gameState.status === 'FINISHED';
+	  const isBomb = newCard.type === 'BOMB';
 
 	  // Le joueur chez qui on vient de couper est celui qui possède maintenant la pince
 	  const targetPlayer = gameState.players.find(p => p.id === gameState.playerWithClippers);
@@ -30,16 +32,19 @@ export function GameAnimations() {
 		ownerName: targetPlayer?.name || "inconnu"
 	  });
 
+	  // La bombe reste à l'écran beaucoup plus longtemps (5 secondes au lieu de 2.5)
+	  const displayDuration = isBomb ? 5000 : 2500;
+
 	  let warningTimer: NodeJS.Timeout;
 	  const hideTimer = setTimeout(() => {
 		setLastCutData(null);
 
-		// On affiche l'alerte "Dernière coupe" que s'il reste une coupe à faire et que la partie n'est pas finie
+		// On n'affiche l'alerte "Dernière coupe" que si ce n'est pas fini
 		if (!isFinished && isLastCutNext) {
 		  setShowLastCutWarning(true);
 		  warningTimer = setTimeout(() => setShowLastCutWarning(false), 2500);
 		}
-	  }, 2500);
+	  }, displayDuration);
 
 	  prevCount.current = currentCount;
 
@@ -55,78 +60,185 @@ export function GameAnimations() {
 
   if (!gameState || !socket) return null;
 
+  const getCardConfig = (type: string) => {
+	switch (type) {
+	  case 'BOMB': return { color: '#ef4444', accent: '#f97316', text: 'EXPLOSION !', isBomb: true };
+	  case 'DEFUSE': return { color: '#22c55e', accent: '#a3e635', text: 'CÂBLE COUPÉ !', isBomb: false };
+	  case 'LOUPE': return { color: '#3b82f6', accent: '#60a5fa', text: 'LOUPE OBTENUE !', isBomb: false };
+	  default: return { color: '#c9a56d', accent: '#f3e7d3', text: 'RIEN...', isBomb: false };
+	}
+  };
+
+  const glitchVariants = {
+	animate: {
+	  x: [0, -2, 2, -1, 1, 0],
+	  y: [0, 1, -1, 0],
+	  filter: ['invert(0%) blur(0px)', 'invert(10%) blur(1px)', 'invert(0%) blur(0px)'],
+	  transition: { duration: 0.3, repeat: Infinity, repeatType: "reverse" as const }
+	}
+  };
+
   return (
-	  <>
-		{/* ANIMATION CARTE COUPÉE */}
+	  <AnimatePresence mode="wait">
+
+		{/* 1. ANIMATION CARTE COUPÉE */}
 		{lastCutData && (
-			<div
-				className="fixed inset-0 z-150 flex items-center justify-center bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
+			<motion.div
+				key="card-cut-anim"
+				initial={{ opacity: 0 }}
+				animate={{ opacity: 1 }}
+				exit={{ opacity: 0, transition: { duration: 0.3 } }}
+				className="fixed inset-0 z-[150] flex items-center justify-center bg-[#0a0a0a]/85 backdrop-blur-sm overflow-hidden pointer-events-none"
+			>
+			  {(() => {
+				const config = getCardConfig(lastCutData.card.type);
 
-			  <div
-				  className="relative w-32 h-48 sm:w-64 sm:h-96 landscape:w-32 landscape:h-48 flex flex-col items-center">
+				const bombVisualEffect = config.isBomb ? (
+					<>
+					  {/* Juste le flash aveuglant initial */}
+					  <motion.div
+						  initial={{ opacity: 1 }} animate={{ opacity: 0 }}
+						  transition={{ duration: 0.6, ease: "easeOut" }}
+						  className="absolute inset-0 bg-white z-50"
+					  />
+					</>
+				) : null;
 
-				{/* TEXTE EN HAUT : Type de carte */}
-				<div
-					className="absolute -top-10 sm:-top-16 landscape:-top-10 left-1/2 -translate-x-1/2 whitespace-nowrap z-10">
-				  <p className={`text-2xl sm:text-4xl landscape:text-xl font-black italic tracking-widest uppercase drop-shadow-lg 
-                 ${lastCutData.card.type === 'BOMB' ? 'text-red-500' :
-					  lastCutData.card.type === 'DEFUSE' ? 'text-green-500' :
-						  lastCutData.card.type === 'LOUPE' ? 'text-blue-400' : 'text-zinc-300'}`}>
-					{lastCutData.card.type === 'BOMB' ? 'Explosion !' :
-						lastCutData.card.type === 'DEFUSE' ? 'Désarmé !' :
-							lastCutData.card.type === 'LOUPE' ? 'Loupe Obtenue !' : 'Rien...'}
-				  </p>
-				</div>
+				const shakeAnimation = config.isBomb ? {
+				  x: [0, -20, 20, -15, 15, -10, 10, 0], y: [0, 5, -5, 0],
+				  transition: { duration: 0.5, delay: 0.1 }
+				} : {};
 
-				{/* IMAGE DE LA CARTE */}
-				<div className="relative w-full h-full animate-in zoom-in spin-in-2 duration-500">
-				  <Image
-					  src={getCardImage(lastCutData.card.type)} alt="Résultat" fill
-					  className={`object-contain 
-                    ${lastCutData.card.type === 'BOMB' ? 'drop-shadow-[0_0_50px_rgba(239,68,68,0.8)]' :
-						  lastCutData.card.type === 'DEFUSE' ? 'drop-shadow-[0_0_50px_rgba(34,197,94,0.8)]' :
-							  lastCutData.card.type === 'LOUPE' ? 'drop-shadow-[0_0_50px_rgba(59,130,246,0.8)]' : 'drop-shadow-[0_0_30px_rgba(255,255,255,0.2)]'}`}
-				  />
-				</div>
+				return (
+					<motion.div
+						initial={{ scale: 0, rotateY: 180, z: -500 }}
+						animate={{ scale: 1, rotateY: 0, z: 0, ...shakeAnimation }}
+						exit={{ scale: 0.8, y: -50, opacity: 0, transition: { duration: 0.3 } }}
+						transition={{ type: "spring", damping: 15, stiffness: 120 }}
+						className="relative w-56 h-80 sm:w-80 sm:h-[480px] landscape:w-44 landscape:h-64 flex flex-col items-center justify-center perspective-[1000px]"
+					>
+					  {bombVisualEffect}
 
-				{/* TEXTE EN BAS : Chez qui */}
-				<div
-					className="absolute -bottom-10 sm:-bottom-16 landscape:-bottom-10 left-1/2 -translate-x-1/2 whitespace-nowrap z-10">
-				  <p className="text-xl sm:text-4xl landscape:text-lg font-black italic tracking-widest uppercase drop-shadow-md text-zinc-100">
-					Chez <span className="text-amber-500">{lastCutData.ownerName}</span>
-				  </p>
-				</div>
-			  </div>
-			</div>
+					  <motion.div
+						  initial={{ opacity: 0, scale: 0.8 }}
+						  animate={{ opacity: [0.2, 0.4, 0.2], scale: [1, 1.2, 1] }}
+						  transition={{ delay: 0.2, duration: 2, repeat: Infinity, ease: "easeInOut" }}
+						  className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-64 h-96 rounded-full blur-[80px] z-0"
+						  style={{ background: `radial-gradient(circle, ${config.accent} 0%, ${config.color} 70%, transparent 100%)` }}
+					  />
+
+					  <motion.div
+						  initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}
+						  className="absolute -top-16 sm:-top-24 landscape:-top-12 left-1/2 -translate-x-1/2 whitespace-nowrap z-30"
+					  >
+						<p className="text-4xl sm:text-6xl landscape:text-3xl font-serif font-black italic tracking-widest uppercase drop-shadow-[0_10px_20px_rgba(0,0,0,0.9)]"
+						   style={{ color: config.color, textShadow: `0 0 15px ${config.accent}` }}>
+						  {config.text}
+						</p>
+					  </motion.div>
+
+					  <motion.div
+						  initial={{ scale: 1 }} animate={config.isBomb ? { scale: [1, 1.1, 1] } : {}} transition={{ duration: 0.3, delay: 0.1 }}
+						  className="relative w-full h-full drop-shadow-[0_20px_50px_rgba(0,0,0,0.9)] z-20"
+					  >
+						<Image src={getCardImage(lastCutData.card.type)} alt="Résultat" fill className="object-contain" priority />
+					  </motion.div>
+
+					  <motion.div
+						  initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }}
+						  className="absolute -bottom-16 sm:-bottom-24 landscape:-bottom-12 left-1/2 -translate-x-1/2 whitespace-nowrap z-30"
+					  >
+						<p className="text-2xl sm:text-4xl landscape:text-xl font-serif italic tracking-widest uppercase text-[#f3e7d3] drop-shadow-[0_5px_15px_rgba(0,0,0,1)]">
+						  Chez <span style={{ color: config.color, textShadow: `0 0 15px ${config.color}` }} className="font-black">{lastCutData.ownerName}</span>
+						</p>
+					  </motion.div>
+					</motion.div>
+				);
+			  })()}
+			</motion.div>
 		)}
 
-		{/* ANIMATION DERNIÈRE COUPE */}
+		{/* 2. ANIMATION DERNIÈRE COUPE */}
 		{showLastCutWarning && (
-			<div className="fixed inset-0 z-150 flex items-center justify-center bg-black/70 backdrop-blur-sm animate-in fade-in duration-200">
-			  <div className="relative w-32 h-48 sm:w-64 sm:h-96 landscape:w-32 landscape:h-48 animate-in zoom-in spin-in-2 duration-500">
-				<Image src={ASSETS.CLIPPER} alt="Pince coupante" fill className="object-contain drop-shadow-[0_0_50px_rgba(245,158,11,0.8)]" />
-				<div className="absolute -bottom-10 sm:-bottom-16 landscape:-bottom-8 left-1/2 -translate-x-1/2 whitespace-nowrap">
-				  <p className="text-xl sm:text-4xl landscape:text-lg font-black italic tracking-widest text-zinc-100 drop-shadow-md uppercase">
-					Dernière coupe !
+			<motion.div
+				key="last-cut-anim"
+				initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+				className="fixed inset-0 z-[150] flex items-center justify-center bg-[#0a0a0a]/70 backdrop-blur-sm pointer-events-none"
+			>
+			  <motion.div
+				  initial={{ scale: 0.5, rotate: -15, y: 30 }}
+				  animate={{ scale: 1, rotate: 0, y: 0 }}
+				  exit={{ scale: 1.5, opacity: 0, transition: { duration: 0.3 } }}
+				  transition={{ type: "spring", stiffness: 150, damping: 10 }}
+				  className="relative w-56 h-56 sm:w-80 sm:h-80 landscape:w-48 landscape:h-48 flex flex-col items-center justify-center"
+			  >
+				<motion.div
+					animate={{ opacity: [0.2, 0.5, 0.2] }}
+					transition={{ repeat: Infinity, duration: 1.5 }}
+					className="absolute inset-0 bg-[#f59e0b] blur-[80px] rounded-full z-0 opacity-50"
+				/>
+
+				<div className="relative w-full h-full z-10 drop-shadow-[0_20px_40px_rgba(0,0,0,0.8)]">
+				  <Image src={ASSETS.CLIPPER} alt="Pince" fill className="object-contain" priority />
+				</div>
+
+				<div className="absolute -bottom-10 sm:-bottom-16 landscape:-bottom-8 left-1/2 -translate-x-1/2 whitespace-nowrap z-20">
+				  <p className="text-3xl sm:text-5xl landscape:text-2xl font-black font-serif uppercase tracking-[0.2em] text-[#f59e0b] drop-shadow-[0_5px_15px_rgba(0,0,0,0.9)]">
+					DERNIÈRE COUPE !
 				  </p>
 				</div>
-			  </div>
-			</div>
+			  </motion.div>
+			</motion.div>
 		)}
 
-		{/* ANIMATION LOUPE (Succès/Échec) */}
+		{/* 3. ANIMATION LOUPE */}
 		{loupeAnimation && (
-			<div className={`fixed inset-0 z-200 flex items-center justify-center ${loupeAnimation.success ? 'bg-blue-900/20' : 'bg-black/30'}  backdrop-blur-md animate-in fade-in`}>
-			  <div className="flex flex-col items-center animate-in zoom-in duration-500">
-				<p className={`text-3xl sm:text-6xl font-black italic tracking-[0.2em] uppercase mb-4 ${loupeAnimation.success ? 'text-blue-700' : 'text-zinc-800'}`}>
-				  {loupeAnimation.success ? 'INDICE RÉVÉLÉ !' : 'LOUPE BRISÉE...'}
+			<motion.div
+				key="loupe-anim"
+				initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+				className={`fixed inset-0 z-[200] flex items-center justify-center backdrop-blur-sm
+              ${loupeAnimation.success ? 'bg-[#1e3a8a]/20' : 'bg-[#450a0a]/40'}`}
+			>
+			  <motion.div
+				  initial={{ scale: 0.9, y: 20 }}
+				  animate={{ scale: 1, y: 0 }}
+				  exit={{ scale: 1.1, opacity: 0 }}
+				  transition={{ type: "spring", damping: 20 }}
+				  className={`relative flex flex-col items-center text-center p-8 sm:p-12 rounded-2xl shadow-2xl backdrop-blur-md
+                ${loupeAnimation.success ? 'bg-[#0a0a0a]/70' : 'bg-[#0a0a0a]/80'}`}
+			  >
+				{loupeAnimation.success ? (
+					[...Array(2)].map((_, i) => (
+						<motion.div key={i}
+									initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: [0, 0.3, 0], scale: [1, 1.5, 2] }}
+									transition={{ delay: i * 0.4, duration: 1.5, repeat: Infinity, ease: "easeOut" }}
+									className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full h-full rounded-2xl border border-[#60a5fa]/30 pointer-events-none"
+						/>
+					))
+				) : (
+					<motion.div
+						animate={{ y: [-50, 50] }} transition={{ repeat: Infinity, duration: 0.15, ease: "linear" }}
+						className="absolute left-0 right-0 h-1 bg-[#ef4444]/30 blur-sm pointer-events-none"
+					/>
+				)}
+
+				<motion.p
+					variants={!loupeAnimation.success ? glitchVariants : {}}
+					animate={!loupeAnimation.success ? "animate" : ""}
+					className={`text-3xl sm:text-5xl font-serif font-black italic tracking-[0.1em] uppercase mb-4 drop-shadow-lg
+               ${loupeAnimation.success ? 'text-[#60a5fa]' : 'text-[#ef4444]'}
+               ${!loupeAnimation.success ? 'before:content-[attr(data-text)] before:absolute before:top-0 before:left-0 before:text-cyan-400 before:opacity-70 before:-translate-x-0.5 before:mix-blend-screen after:content-[attr(data-text)] after:absolute after:top-0 after:left-0 after:text-magenta-500 after:opacity-70 after:translate-x-0.5 after:mix-blend-screen' : ''}`}
+					data-text={loupeAnimation.success ? 'INDICE RÉVÉLÉ !' : 'LOUPE BROUILLÉE'}
+				>
+				  {loupeAnimation.success ? 'INDICE RÉVÉLÉ !' : 'LOUPE BROUILLÉE'}
+				</motion.p>
+
+				<p className="text-lg sm:text-xl text-[#f3e7d3] font-serif tracking-widest uppercase">
+				  Cible détectée : <span className="font-bold text-[#c9a56d] font-sans">{loupeAnimation.targetName}</span>
 				</p>
-				<p className="text-xl text-zinc-100 font-serif italic tracking-widest">
-				  Cible : {loupeAnimation.targetName}
-				</p>
-			  </div>
-			</div>
+			  </motion.div>
+			</motion.div>
 		)}
-	  </>
+	  </AnimatePresence>
   );
 }

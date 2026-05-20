@@ -52,6 +52,7 @@ export interface GameState {
   isLoupeModeEnabled?: boolean;
   teamHasLoupe?: boolean;
   stats?: GameSessionStats;
+  surrenderVotes?: string[];
 }
 
 export const GAME_CONFIG = {

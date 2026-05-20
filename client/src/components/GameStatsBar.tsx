@@ -37,6 +37,10 @@ export function GameStatsBar({
   const dist = getRoleDistribution();
   const canUseScanner = gameState?.teamHasLoupe && currentRound < 4;
 
+  // Calcul des coupes restantes
+  const cardsRevealedThisRound = gameState?.cardsRevealedThisRound ?? 0;
+  const cutsRemaining = totalPlayers - cardsRevealedThisRound;
+
   return (
 	  <div
 		  className="flex items-center justify-between px-6 py-2 bg-linear-to-b from-black/60 to-transparent border-b border-amber-900/20 shrink-0 h-24">
@@ -45,19 +49,22 @@ export function GameStatsBar({
 		<div className="flex flex-col gap-1">
 		  <div className="flex items-center gap-3">
 			<div
-				className="flex items-center gap-2 bg-blue-900/40 px-3 py-1 rounded border border-blue-500/40 shadow-inner">
-			  <div className="relative w-6 h-8"><Image src={getRoleImage('SHERLOCK')} alt="B" fill
+				className="flex items-center gap-2 bg-blue-900/40 px-2 rounded border border-blue-500/40 shadow-inner">
+			  <div className="relative w-8 h-10"><Image src={getRoleImage('SHERLOCK')} alt="B" fill
 													   className="object-contain"/></div>
 			  <span className="text-lg font-black text-blue-400">{dist.blue}</span>
 			</div>
 			<div
-				className="flex items-center gap-2 bg-red-900/40 px-3 py-1 rounded border border-red-500/40 shadow-inner">
-			  <div className="relative w-6 h-8"><Image src={getRoleImage('MORIARTY')} alt="R" fill
+				className="flex items-center gap-2 bg-red-900/40 px-2 rounded border border-red-500/40 shadow-inner">
+			  <div className="relative w-8 h-10"><Image src={getRoleImage('MORIARTY')} alt="R" fill
 													   className="object-contain"/></div>
 			  <span className="text-lg font-black text-red-400">{dist.red}</span>
 			</div>
 		  </div>
-		  <p className="text-xs text-amber-600 uppercase tracking-[0.2em] font-black">MANCHE {currentRound}</p>
+		  <div className="flex flex-col gap-2">
+			<p className="text-xs text-zinc-50 uppercase tracking-[0.2em] font-black">MANCHE {currentRound}</p>
+			<p className="text-xs text-zinc-50 uppercase tracking-[0.2em] font-black">COUPES RESTANTES: {cutsRemaining}</p>
+		  </div>
 		</div>
 
 		{/* CENTRE : BOUTON LOUPE STEAMPUNK */}
@@ -72,9 +79,9 @@ export function GameStatsBar({
 		{/* Cimetière */}
 		<div className="flex flex-col items-end gap-1">
 		  <p className="text-xs font-black text-green-500 tracking-widest uppercase">DÉSARMÉS: {defusesFound}/{defusesNeeded}</p>
-		  <div className="flex overflow-x-auto pl-6 py-1 items-center no-scrollbar max-w-30">
+		  <div className="flex overflow-x-auto pl-6 py-1 items-center no-scrollbar max-w-80">
 			{revealedCards?.map((card: CardType, i: number) => (
-				<div key={i} className="relative w-8 h-12 shrink-0 -ml-5 first:ml-0 drop-shadow-xl" style={{zIndex: i}}>
+				<div key={i} className="relative w-8 h-12 shrink-0 -ml-3 first:ml-0 drop-shadow-xl" style={{zIndex: i}}>
 				  <Image src={getCardImage(card.type)} alt="card" fill className="object-contain"/>
 				</div>
 			))}
