@@ -45,7 +45,7 @@ export function GameBoard() {
 		<TopNavBar
 			me={me} opponents={opponents}
 			viewedPlayerId={viewedPlayerId} setViewedPlayerId={setViewedPlayerId}
-			playerWithClippers={gameState.playerWithClippers} iHaveClippers={iHaveClippers}
+			playerWithClippers={gameState.playerWithClippers}
 		/>
 
 		<GameStatsBar

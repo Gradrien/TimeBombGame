@@ -5,9 +5,15 @@ import type {GameStoreProps, RoomInfo} from "@/types/types";
 
 const SOCKET_URL = process.env.NEXT_PUBLIC_SOCKET_URL || 'http://localhost:3001';
 
-const getSavedSession = () => {
+const getStorageType = () => {
   if (typeof window === 'undefined') return null;
-  const saved = sessionStorage.getItem('timebomb_session');
+  return process.env.NODE_ENV === 'development' ? sessionStorage : localStorage;
+};
+
+const getSavedSession = () => {
+  const storage = getStorageType();
+  if (!storage) return null;
+  const saved = storage.getItem('timebomb_session');
   return saved ? JSON.parse(saved) : null;
 };
 
@@ -45,11 +51,14 @@ export const useGameStore = create<GameStoreProps>((set, get) => ({
 		if (response.success) {
 		  const user = response.user;
 		  set({ playerId: user.id, playerName: user.username, pinCode: user.pinCode, error: null });
-		  sessionStorage.setItem('timebomb_session', JSON.stringify({
-			id: user.id,
-			username: user.username,
-			pinCode: user.pinCode
-		  }));
+		  const storage = getStorageType();
+		  if (storage) {
+			storage.setItem('timebomb_session', JSON.stringify({
+			  id: user.id,
+			  username: user.username,
+			  pinCode: user.pinCode
+			}));
+		  }
 		  resolve(true);
 		} else {
 		  set({ error: response.error });
@@ -60,7 +69,10 @@ export const useGameStore = create<GameStoreProps>((set, get) => ({
   },
 
   logout: () => {
-	sessionStorage.removeItem('timebomb_session');
+	const storage = getStorageType();
+	if (storage) {
+	  storage.removeItem('timebomb_session');
+	}
 	set({ playerId: '', playerName: '', pinCode: '', gameState: null });
   },
 
