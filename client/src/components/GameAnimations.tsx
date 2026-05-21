@@ -178,13 +178,13 @@ export function GameAnimations() {
 					className="absolute inset-0 bg-[#f59e0b] blur-[80px] rounded-full z-0 opacity-50"
 				/>
 
-				<div className="relative w-full h-full z-10 drop-shadow-[0_20px_40px_rgba(0,0,0,0.8)]">
+				<div className="relative w-full h-full z-10 mb-4 drop-shadow-[0_20px_40px_rgba(0,0,0,0.8)]">
 				  <Image src={ASSETS.CLIPPER} alt="Pince" fill className="object-contain" priority />
 				</div>
 
 				<div className="absolute -bottom-10 sm:-bottom-16 landscape:-bottom-8 left-1/2 -translate-x-1/2 whitespace-nowrap z-20">
 				  <p className="text-3xl sm:text-5xl landscape:text-2xl font-black font-serif uppercase tracking-[0.2em] text-[#f59e0b] drop-shadow-[0_5px_15px_rgba(0,0,0,0.9)]">
-					DERNIÈRE COUPE !
+					DERNIÈRE COUPE
 				  </p>
 				</div>
 			  </motion.div>
