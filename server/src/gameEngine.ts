@@ -3,7 +3,7 @@ import {randomUUID} from 'crypto';
 
 export function assignRoles(players: Player[], useLoupe: boolean = false): void {
   const count = players.length as ValidPlayerCount;
-  if (!GAME_CONFIG[count]) throw new Error("Le nombre de joueurs doit être entre 4 et 8");
+  if (!GAME_CONFIG[count]) throw new Error("Le nombre de joueurs doit être entre 4 et 12");
 
   const rolePool = shuffleArray<Role>(GAME_CONFIG[count].roles);
 
