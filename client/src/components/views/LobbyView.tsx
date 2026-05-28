@@ -17,7 +17,7 @@ export function LobbyView({gameState, playerName, onStart}: LobbyViewProps) {
   return (
 	  <main className="flex min-h-screen flex-col items-center justify-center bg-black/40 text-white p-4 relative overflow-hidden">
 		<h2 className="text-3xl font-bold mb-2 tracking-wide drop-shadow-md font-serif text-[#f3e7d3]">ROOM {gameState.roomId}</h2>
-		<p className="mb-10 font-serif tracking-wide text-[#f3e7d3]">En attente de joueurs... ({gameState.players.length}/8)</p>
+		<p className="mb-10 font-serif tracking-wide text-[#f3e7d3]">En attente de joueurs... ({gameState.players.length}/12)</p>
 
 		{/* Encadré Paramètres (Loupe) - Mode "Clear Glass" */}
 		<div className="relative mb-8 w-full max-w-sm bg-[#1a1510]/40 backdrop-blur-md p-6 rounded-2xl border border-[#c9a56d]/30 shadow-2xl flex flex-col gap-4 z-10 overflow-hidden">
