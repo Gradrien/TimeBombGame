@@ -137,7 +137,7 @@ export function setupSocketHandlers(io: Server, socket: Socket) {
 	}
 
 	if (room.status !== 'LOBBY') return socket.emit('gameError', 'Partie déjà en cours, lobby fermé');
-	if (room.players.length >= 8) return socket.emit('gameError', 'Room complète (8 joueurs max)');
+	if (room.players.length >= 12) return socket.emit('gameError', 'Room complète (12 joueurs max)');
 
 	room.players.push({id: playerId, name: playerName, cards: [], isHost: false, socketId: socket.id} as any);
 	socket.join(roomId);
