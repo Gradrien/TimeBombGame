@@ -43,6 +43,11 @@ export const useGameStore = create<GameStoreProps>((set, get) => ({
   setPinCode: (pin) => set({pinCode: pin}),
   clearError: () => set({error: null}),
 
+  get isAnimating() {
+	const state = get();
+	return state.isAnimatingCut || state.loupeAnimation !== null || state.isReviewingCards || state.isReviewingRole;
+  },
+
   login: (name, pin) => {
 	return new Promise((resolve) => {
 	  const { socket } = get();
@@ -120,7 +125,6 @@ export const useGameStore = create<GameStoreProps>((set, get) => ({
 	set({socket});
   },
 
-  // CORRECTION : Les arguments sont passés explicitement au socket
   createRoom: (name) => {
 	const {socket, playerId, playerName} = get();
 	if (socket) socket.emit('createRoom', name || playerName, playerId);
@@ -149,6 +153,11 @@ export const useGameStore = create<GameStoreProps>((set, get) => ({
   toggleLoupeMode: (roomId, enabled) => {
 	const {socket} = get();
 	if (socket) socket.emit('toggleLoupeMode', roomId, enabled);
+  },
+
+  toggleTimerMode: (roomId, enabled, duration) => {
+	const {socket} = get();
+	if (socket) socket.emit('toggleTimerMode', roomId, enabled, duration);
   },
 
   useLoupe: (roomId, targetPlayerId, cardId) => {

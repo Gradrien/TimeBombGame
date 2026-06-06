@@ -53,6 +53,9 @@ export interface GameState {
   teamHasLoupe?: boolean;
   stats?: GameSessionStats;
   surrenderVotes?: string[];
+  isTimerModeEnabled?: boolean;
+  timerDuration?: number;
+  turnEndTime?: number;
 }
 
 export const GAME_CONFIG = {
@@ -96,3 +99,6 @@ export const GAME_CONFIG = {
 	bomb: 1
   },
 } as const;
+
+const playerCounts = Object.keys(GAME_CONFIG).map(Number);
+export const MAX_PLAYERS = Math.max(...playerCounts);

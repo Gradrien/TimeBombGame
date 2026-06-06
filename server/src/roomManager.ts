@@ -1,5 +1,5 @@
 import {Server, Socket} from 'socket.io';
-import {AchievementDef, ACHIEVEMENTS, GameState, ValidPlayerCount} from '@timebomb/shared';
+import {AchievementDef, ACHIEVEMENTS, GameState, MAX_PLAYERS, ValidPlayerCount} from '@timebomb/shared';
 import {assignRoles, generateInitialDeck, distributeCards, gatherAndShuffleRemainingCards} from './gameEngine';
 import {
   initGameSessionStats,
@@ -17,10 +17,10 @@ import {PrismaClient} from "./generated/client/index";
 
 const pool = new Pool({connectionString: process.env.DATABASE_URL});
 const adapter = new PrismaPg(pool);
-
 const prisma = new PrismaClient({adapter});
 
 const activeRooms = new Map<string, GameState>();
+const activeTimers = new Map<string, NodeJS.Timeout>();
 
 function generateRoomCode() {
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
@@ -53,6 +53,133 @@ function broadcastGameState(io: Server, roomId: string) {
 	if (player.socketId) io.to(player.socketId).emit('gameStateUpdated', safeState);
   });
 }
+
+// --- GESTION DU CHRONOMÈTRE ---
+function clearTurnTimer(roomId: string) {
+  if (activeTimers.has(roomId)) {
+	clearTimeout(activeTimers.get(roomId));
+	activeTimers.delete(roomId);
+  }
+}
+
+function startTurnTimer(io: Server, roomId: string, delayMs: number = 0) {
+  const room = activeRooms.get(roomId);
+  if (!room || !room.isTimerModeEnabled) return;
+
+  clearTurnTimer(roomId);
+
+  const durationMs = (room.timerDuration || 15) * 1000;
+
+  // On décale la fin du tour pour absorber l'animation
+  room.turnEndTime = Date.now() + durationMs + delayMs;
+
+  const timeoutId = setTimeout(() => {
+	executeRandomCut(io, roomId);
+  }, durationMs + delayMs);
+
+  activeTimers.set(roomId, timeoutId);
+}
+
+function executeRandomCut(io: Server, roomId: string) {
+  const room = activeRooms.get(roomId);
+  if (!room || room.status !== 'PLAYING' || room.phase !== 'PLAYING') return;
+
+  const clippersId = room.playerWithClippers;
+  // Trouver tous les joueurs ciblables (sauf celui qui a la pince, et qui ont encore des cartes)
+  const validPlayers = room.players.filter(p => p.id !== clippersId && p.cards.some(c => !c.isRevealed));
+
+  if (validPlayers.length === 0) return;
+
+  // Choix aléatoire d'un joueur et d'une de ses cartes
+  const randomPlayer = validPlayers[Math.floor(Math.random() * validPlayers.length)];
+  const unrevealedCards = randomPlayer.cards.filter(c => !c.isRevealed);
+  const randomCard = unrevealedCards[Math.floor(Math.random() * unrevealedCards.length)];
+
+  // On exécute la coupe de force
+  handleCutLogic(io, roomId, clippersId, randomPlayer.id, randomCard.id);
+}
+
+// --- LOGIQUE COMMUNE DE COUPE ---
+function handleCutLogic(io: Server, roomId: string, sourcePlayerId: string, targetPlayerId: string, cardId: string) {
+  const room = activeRooms.get(roomId);
+  if (!room || room.status !== 'PLAYING' || room.phase !== 'PLAYING') return;
+
+  clearTurnTimer(roomId);
+
+  if (room.playerWithClippers !== sourcePlayerId) return;
+  if (sourcePlayerId === targetPlayerId) return;
+
+  const targetPlayer = room.players.find(p => p.id === targetPlayerId);
+  if (!targetPlayer) return;
+
+  const cardIndex = targetPlayer.cards.findIndex(c => c.id === cardId);
+  if (cardIndex === -1) return;
+
+  const card = targetPlayer.cards[cardIndex]!;
+  if (!card || card.isRevealed) return;
+
+  card.isRevealed = true;
+  room.revealedCards.push(card);
+  targetPlayer.cards.splice(cardIndex, 1);
+  room.cardsRevealedThisRound++;
+  room.playerWithClippers = targetPlayerId;
+
+  if (room.stats) {
+	recordCut(room.stats, sourcePlayerId, targetPlayerId, card.type, room.currentRound, room.cardsRevealedThisRound);
+  }
+
+  // Vérification de victoire
+  if (card.type === 'BOMB') {
+	room.status = 'FINISHED';
+	room.winner = 'MORIARTY';
+  } else if (card.type === 'DEFUSE') {
+	room.totalDefusesFound++;
+	if (room.totalDefusesFound === room.totalDefusesNeeded) {
+	  room.status = 'FINISHED';
+	  room.winner = 'SHERLOCK';
+	}
+  } else if (card.type === 'LOUPE') {
+	room.teamHasLoupe = true;
+  }
+
+  // Vérification de fin de manche
+  if (room.status === 'PLAYING' && room.cardsRevealedThisRound === room.players.length) {
+	if (room.stats) {
+	  const defusesThisRound = room.revealedCards.slice(-room.players.length).filter(c => c.type === 'DEFUSE').length;
+	  recordRoundEnd(room.stats, defusesThisRound, false);
+	}
+
+	if (room.currentRound === 4) {
+	  room.status = 'FINISHED';
+	  room.winner = 'MORIARTY';
+	} else {
+	  room.currentRound++;
+	  room.cardsRevealedThisRound = 0;
+	  room.phase = 'CARD_REVEAL';
+	  room.readyPlayers = [];
+	  const newDeck = gatherAndShuffleRemainingCards(room.players);
+	  distributeCards(newDeck, room.players);
+	}
+  }
+
+  if (room.status === 'FINISHED' && room.stats) {
+	processEndGameStats(room, room.stats)
+		.then(unlockedBadges => {
+		  if (unlockedBadges && unlockedBadges.length > 0) {
+			io.to(roomId).emit('achievementsUnlocked', unlockedBadges);
+		  }
+		})
+		.catch(err => console.error("Erreur d'attribution des succès :", err));
+  }
+
+  // Si le jeu continue sur la même manche, on relance le chronomètre pour le nouveau joueur
+  if (room.status === 'PLAYING' && room.phase === 'PLAYING') {
+	startTurnTimer(io, roomId, 2500);
+  }
+
+  broadcastGameState(io, roomId);
+}
+
 
 export function setupSocketHandlers(io: Server, socket: Socket) {
 
@@ -101,6 +228,8 @@ export function setupSocketHandlers(io: Server, socket: Socket) {
 	  totalDefusesNeeded: 0,
 	  playerWithClippers: '',
 	  isLoupeModeEnabled: false,
+	  isTimerModeEnabled: false,
+	  timerDuration: 15,
 	  teamHasLoupe: false,
 	  revealedCards: [],
 	  readyPlayers: [],
@@ -124,6 +253,19 @@ export function setupSocketHandlers(io: Server, socket: Socket) {
 	}
   });
 
+  // --- NOUVEAU : Handler Toggle Chrono ---
+  socket.on('toggleTimerMode', (roomId: string, enabled: boolean, duration: number) => {
+	const room = activeRooms.get(roomId);
+	if (room && room.status === 'LOBBY') {
+	  const me = room.players.find(p => p.socketId === socket.id);
+	  if (me && me.isHost) {
+		room.isTimerModeEnabled = enabled;
+		room.timerDuration = duration;
+		broadcastGameState(io, roomId);
+	  }
+	}
+  });
+
   socket.on('joinRoom', (roomId: string, playerName: string, playerId: string) => {
 	const room = activeRooms.get(roomId);
 	if (!room) return socket.emit('gameError', 'Ce code de Room n\'existe pas');
@@ -137,7 +279,7 @@ export function setupSocketHandlers(io: Server, socket: Socket) {
 	}
 
 	if (room.status !== 'LOBBY') return socket.emit('gameError', 'Partie déjà en cours, lobby fermé');
-	if (room.players.length >= 12) return socket.emit('gameError', 'Room complète (12 joueurs max)');
+	if (room.players.length >= MAX_PLAYERS) return socket.emit('gameError', `Room complète (${MAX_PLAYERS} joueurs max)`);
 
 	room.players.push({id: playerId, name: playerName, cards: [], isHost: false, socketId: socket.id} as any);
 	socket.join(roomId);
@@ -146,7 +288,7 @@ export function setupSocketHandlers(io: Server, socket: Socket) {
 
   socket.on('startGame', (roomId: string) => {
 	const room = activeRooms.get(roomId);
-	if (!room || room.status !== 'LOBBY' || room.players.length < 4 || room.players.length > 8) return;
+	if (!room || room.status !== 'LOBBY' || room.players.length < 4 || room.players.length > MAX_PLAYERS) return;
 	const randomIndex = Math.floor(Math.random() * room.players.length);
 
 	room.status = 'PLAYING';
@@ -156,7 +298,7 @@ export function setupSocketHandlers(io: Server, socket: Socket) {
 	room.totalDefusesFound = 0;
 	room.totalDefusesNeeded = room.players.length;
 	room.playerWithClippers = room.players[randomIndex].id;
-	room.teamHasLoupe = false; // Reset du joker
+	room.teamHasLoupe = false;
 	room.stats = initGameSessionStats();
 
 	assignRoles(room.players, room.isLoupeModeEnabled);
@@ -185,87 +327,25 @@ export function setupSocketHandlers(io: Server, socket: Socket) {
 	if (room.readyPlayers.length === room.players.length) {
 	  room.phase = 'PLAYING';
 	  room.readyPlayers = [];
+	  startTurnTimer(io, roomId);
 	}
 	broadcastGameState(io, roomId);
   });
 
   socket.on('cutCard', (roomId: string, targetPlayerId: string, cardId: string) => {
 	const room = activeRooms.get(roomId);
-	if (!room || room.status !== 'PLAYING' || room.phase !== 'PLAYING') return;
-
+	if (!room) return;
 	const me = room.players.find(p => p.socketId === socket.id);
-	if (!me || room.playerWithClippers !== me.id) return;
-	if (me.id === targetPlayerId) return;
+	if (!me) return;
 
-	const targetPlayer = room.players.find(p => p.id === targetPlayerId);
-	if (!targetPlayer) return;
-
-	const cardIndex = targetPlayer.cards.findIndex(c => c.id === cardId);
-	if (cardIndex === -1) return;
-
-	const card = targetPlayer.cards[cardIndex]!;
-	if (!card || card.isRevealed) return;
-
-	card.isRevealed = true;
-	room.revealedCards.push(card);
-	targetPlayer.cards.splice(cardIndex, 1);
-	room.cardsRevealedThisRound++;
-	room.playerWithClippers = targetPlayerId;
-
-	if (room.stats) {
-	  recordCut(room.stats, me.id, targetPlayerId, card.type, room.currentRound, room.cardsRevealedThisRound);
-	}
-
-	if (card.type === 'BOMB') {
-	  room.status = 'FINISHED';
-	  room.winner = 'MORIARTY';
-	} else if (card.type === 'DEFUSE') {
-	  room.totalDefusesFound++;
-	  if (room.totalDefusesFound === room.totalDefusesNeeded) {
-		room.status = 'FINISHED';
-		room.winner = 'SHERLOCK';
-	  }
-	} else if (card.type === 'LOUPE') {
-	  room.teamHasLoupe = true;
-	}
-
-	if (room.status === 'PLAYING' && room.cardsRevealedThisRound === room.players.length) {
-	  if (room.stats) {
-		const defusesThisRound = room.revealedCards.slice(-room.players.length).filter(c => c.type === 'DEFUSE').length;
-		recordRoundEnd(room.stats, defusesThisRound, false);
-	  }
-
-	  if (room.currentRound === 4) {
-		room.status = 'FINISHED';
-		room.winner = 'MORIARTY';
-	  } else {
-		room.currentRound++;
-		room.cardsRevealedThisRound = 0;
-		room.phase = 'CARD_REVEAL';
-		room.readyPlayers = [];
-		const newDeck = gatherAndShuffleRemainingCards(room.players);
-		distributeCards(newDeck, room.players);
-	  }
-	}
-
-	if (room.status === 'FINISHED' && room.stats) {
-	  processEndGameStats(room, room.stats)
-		  .then(unlockedBadges => {
-			if (unlockedBadges && unlockedBadges.length > 0) {
-			  io.to(roomId).emit('achievementsUnlocked', unlockedBadges);
-			}
-		  })
-		  .catch(err => console.error("Erreur d'attribution des succès :", err));
-	}
-
-	broadcastGameState(io, roomId);
+	handleCutLogic(io, roomId, me.id, targetPlayerId, cardId);
   });
 
   socket.on('getUserProfile', async (playerId, callback) => {
 	try {
 	  const user = await prisma.user.findUnique({
 		where: { id: playerId },
-		include: { achievements: true } // On récupère les succès de la nouvelle table
+		include: { achievements: true }
 	  });
 
 	  if (!user) return callback(null);
@@ -372,6 +452,22 @@ export function setupSocketHandlers(io: Server, socket: Socket) {
 	  io.to(roomId).emit('loupeResult', {success: false, targetName: targetPlayer.name});
 	}
 
+	// On accorde un délai supplémentaire au timer pour compenser l'animation de la loupe
+	if (room.isTimerModeEnabled && activeTimers.has(roomId)) {
+	  clearTurnTimer(roomId);
+
+	  const remainingMs = Math.max(0, (room.turnEndTime || Date.now()) - Date.now());
+	  const newRemainingMs = remainingMs + 3000; // <-- Délai de la loupe
+
+	  room.turnEndTime = Date.now() + newRemainingMs;
+
+	  const timeoutId = setTimeout(() => {
+		executeRandomCut(io, roomId);
+	  }, newRemainingMs);
+
+	  activeTimers.set(roomId, timeoutId);
+	}
+
 	broadcastGameState(io, roomId);
   });
 
@@ -383,7 +479,8 @@ export function setupSocketHandlers(io: Server, socket: Socket) {
 	if (playerIndex !== -1) {
 	  room.players.splice(playerIndex, 1);
 	  if (room.players.length === 0) {
-		activeRooms.delete(roomId); // Ferme le lobby si c'est le dernier
+		clearTurnTimer(roomId);
+		activeRooms.delete(roomId);
 	  } else {
 		// Transfère l'ownership si l'hôte part
 		if (!room.players.some(p => p.isHost)) room.players[0].isHost = true;
@@ -396,6 +493,9 @@ export function setupSocketHandlers(io: Server, socket: Socket) {
   socket.on('restartGame', (roomId: string) => {
 	const room = activeRooms.get(roomId);
 	if (!room) return;
+
+	clearTurnTimer(roomId);
+
 	room.status = 'LOBBY';
 	room.phase = "NOT_STARTED";
 	room.readyPlayers = [];
@@ -423,6 +523,7 @@ export function setupSocketHandlers(io: Server, socket: Socket) {
 		if (room.status === 'LOBBY' || room.status === 'FINISHED') {
 		  room.players.splice(playerIndex, 1);
 		  if (room.players.length === 0) {
+			clearTurnTimer(roomId);
 			activeRooms.delete(roomId);
 		  } else {
 			// Si l'hôte part, on donne le lead au suivant
@@ -478,7 +579,8 @@ export function setupSocketHandlers(io: Server, socket: Socket) {
 	const requiredVotes = Math.floor(room.players.length / 2) + 1;
 
 	if (room.surrenderVotes.length >= requiredVotes) {
-	  // Le vote passe, retour au lobby
+	  clearTurnTimer(roomId);
+
 	  room.status = 'LOBBY';
 	  room.phase = 'NOT_STARTED';
 	  room.surrenderVotes = [];

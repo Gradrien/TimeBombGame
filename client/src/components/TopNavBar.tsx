@@ -11,8 +11,7 @@ export function TopNavBar({
 						  }: TopNavBarProps) {
   const isViewingOpponent = viewedPlayerId !== null && viewedPlayerId !== me.id;
 
-  const playerButtonBase =
-	  `
+  const playerButtonBase = `
       min-w-0 rounded-md border font-serif tracking-widest
       transition-all shadow-sm
       flex items-center justify-center gap-2
@@ -31,15 +30,15 @@ export function TopNavBar({
 	  <div
 		  className="
         shrink-0 border-b border-zinc-700 bg-zinc-900/80 shadow-lg
-        px-3 py-2
+        px-3 py-2 w-full
         landscape:px-4
       "
 	  >
 		<div
 			className="
-          flex flex-wrap items-center gap-2
-          max-h-[136px] overflow-y-auto no-scrollbar
-          landscape:max-h-none landscape:flex-nowrap landscape:overflow-visible landscape:gap-3
+          flex flex-wrap items-center gap-2 w-full
+          max-h-34 overflow-y-auto overflow-x-hidden no-scrollbar
+          landscape:max-h-none landscape:flex-nowrap landscape:overflow-x-auto landscape:overflow-y-hidden landscape:gap-3
         "
 		>
 		  <button

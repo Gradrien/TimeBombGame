@@ -1,4 +1,3 @@
-// client/src/components/HomeView.tsx
 import {useState, useEffect} from 'react';
 import {useGameStore} from '@/store/useGameStore';
 import Image from 'next/image';
@@ -7,7 +6,6 @@ import {LoginView} from "@/components/views/LoginView";
 import {MainMenuView} from "@/components/views/MainMenuView";
 import {JoinRoomView} from "@/components/views/JoinRoomView";
 import type {ViewState} from "@/types/views";
-
 
 export function HomeView() {
   const {playerId, error} = useGameStore();
@@ -22,20 +20,27 @@ export function HomeView() {
 
   const displayError = localError || error;
 
+  // Détermination de la largeur du conteneur selon la vue
+  const getContainerWidth = () => {
+	if (view === 'PROFILE') return 'max-w-7xl';
+	if (view === 'MAIN') return 'max-w-sm landscape:max-w-3xl';
+	return 'max-w-sm'; // LOGIN et JOIN restent contraints
+  };
+
   return (
 	  <main className="flex min-h-screen flex-col items-center justify-center text-white p-6 relative overflow-hidden">
-		{/* Overlay de fond fixe pour éviter les défauts visuels lors du drag/overscroll */}
+		{/* Overlay de fond fixe */}
 		<div className="fixed inset-0 bg-black/40 -z-10 pointer-events-none" />
 
-		{/* 1. LOGO TIME BOMB */}
+		{/* LOGO TIME BOMB */}
 		{view !== 'PROFILE' && (
 			<div className="relative w-full max-w-70 sm:max-w-105 aspect-3/1 z-10 mb-8 sm:mb-12">
 			  <Image src="/assets/game-title.png" alt="Time Bomb" fill className="object-contain drop-shadow-[0_15px_30px_rgba(0,0,0,0.9)]" priority />
 			</div>
 		)}
 
-		{/* 2. CONTENEUR CENTRAL DES ACTIONS */}
-		<div className={`flex flex-col gap-5 w-full z-10 ${view === 'PROFILE' ? 'max-w-7xl' : 'max-w-sm'}`}>
+		{/* CONTENEUR CENTRAL DES ACTIONS */}
+		<div className={`flex flex-col gap-5 w-full z-10 ${getContainerWidth()}`}>
 
 		  {/* Affichage des Erreurs */}
 		  {displayError && (
@@ -49,30 +54,10 @@ export function HomeView() {
 		  )}
 
 		  {/* AIGUILLAGE DES VUES */}
-		  {view === 'LOGIN' && (
-			  <LoginView
-				  onLoginSuccess={() => setView('MAIN')}
-				  onError={setLocalError}
-			  />
-		  )}
-
-		  {view === 'MAIN' && (
-			  <MainMenuView
-				  onNavigate={setView}
-			  />
-		  )}
-
-		  {view === 'JOIN' && (
-			  <JoinRoomView
-				  onBack={() => setView('MAIN')}
-			  />
-		  )}
-
-		  {view === 'PROFILE' && (
-			  <ProfileView
-				  onBack={() => setView('MAIN')}
-			  />
-		  )}
+		  {view === 'LOGIN' && <LoginView onLoginSuccess={() => setView('MAIN')} onError={setLocalError} />}
+		  {view === 'MAIN' && <MainMenuView onNavigate={setView} />}
+		  {view === 'JOIN' && <JoinRoomView onBack={() => setView('MAIN')} />}
+		  {view === 'PROFILE' && <ProfileView onBack={() => setView('MAIN')} />}
 
 		</div>
 	  </main>

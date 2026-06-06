@@ -48,6 +48,11 @@ export interface TopNavBarProps {
   playerWithClippers: string;
 }
 
+export interface WikiModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+}
+
 export interface RoomInfo {
   roomId: string;
   playerCount: number;
@@ -70,6 +75,8 @@ export interface GameStoreProps {
   setScannerActive: (active: boolean) => void;
   toggleLoupeMode: (roomId: string, enabled: boolean) => void;
   useLoupe: (roomId: string, targetPlayerId: string, cardId: string) => void;
+
+  toggleTimerMode: (roomId: string, enabled: boolean, duration: number) => void;
 
   setPlayerName: (name: string) => void;
   setPinCode: (pin: string) => void;
