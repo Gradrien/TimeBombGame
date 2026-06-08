@@ -69,7 +69,7 @@ export function LobbyView({gameState, playerName, onStart}: LobbyViewProps) {
 			  )}
 			</div>
 			{!canUseLoupe && isHost && (
-				<p className="text-xs text-[#b08a57] font-serif italic tracking-wide">5 joueurs minimum requis</p>
+				<p className="text-sm text-zinc-100 font-serif italic tracking-wide">5 joueurs minimum requis</p>
 			)}
 		  </div>
 
@@ -110,7 +110,7 @@ export function LobbyView({gameState, playerName, onStart}: LobbyViewProps) {
 			{/* Sélection du temps (Visible si activé) */}
 			{gameState.isTimerModeEnabled && (
 				<div className="flex items-center justify-between mt-1 animate-in fade-in slide-in-from-top-2">
-				  <span className="text-sm font-serif italic text-zinc-400">Temps par tour :</span>
+				  <span className="text-sm font-serif italic text-zinc-100">Temps par tour :</span>
 				  {isHost ? (
 					  <select
 						  value={gameState.timerDuration || 15}

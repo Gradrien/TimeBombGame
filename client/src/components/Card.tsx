@@ -10,9 +10,12 @@ export function Card({card, isInteractable, onAction, forceFaceUp}: CardProps) {
 		  onClick={() => onAction(card.id)}
 		  disabled={!isInteractable || card.isRevealed}
 		  className={`
-        relative w-16 h-24 sm:w-24 sm:h-36 rounded-lg overflow-hidden
-        transition-all duration-300
-        ${isInteractable ? 'hover:-translate-y-2 cursor-pointer' : 'cursor-default'}
+        relative rounded-lg overflow-hidden transition-all duration-300 shrink-0
+        w-24 h-36 
+        sm:w-32 sm:h-48 
+        sm:landscape:w-20 sm:landscape:h-28 
+        lg:landscape:w-24 lg:landscape:h-36
+        ${isInteractable ? 'hover:-translate-y-2 cursor-pointer shadow-lg' : 'cursor-default shadow-md'}
       `}
 		  style={{perspective: '1000px'}}
 	  >

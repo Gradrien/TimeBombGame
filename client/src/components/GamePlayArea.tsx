@@ -1,8 +1,8 @@
-import { Card } from '@/components/Card';
+import {Card} from '@/components/Card';
 import Image from 'next/image';
-import { ASSETS } from '@/utils/assets';
-import { useGameStore } from '@/store/useGameStore';
-import type { GamePlayAreaProps } from "@/types/types";
+import {ASSETS} from '@/utils/assets';
+import {useGameStore} from '@/store/useGameStore';
+import type {GamePlayAreaProps} from "@/types/types";
 
 export function GamePlayArea({
 							   viewedPlayer,
@@ -12,7 +12,7 @@ export function GamePlayArea({
 							   handleCutCard,
 							   players
 							 }: GamePlayAreaProps) {
-  const { gameState, useLoupe, isScannerActive, setReviewingCards, isReviewingCards, playerId } = useGameStore();
+  const {gameState, useLoupe, isScannerActive, setReviewingCards, isReviewingCards, playerId} = useGameStore();
 
   const activePlayerName = players.find(p => p.id === playerWithClippers)?.name || "quelqu'un";
   const me = players.find(p => p.id === playerId) || viewedPlayer;
@@ -30,42 +30,45 @@ export function GamePlayArea({
   };
 
   return (
-	  <div className="flex-1 z-40 flex flex-col items-center justify-center p-2 sm:p-4 relative">
+	  <div
+		  className="flex-1 z-40 flex flex-col items-center justify-center p-2 sm:p-4 relative overflow-y-auto no-scrollbar">
 		{isReviewingCards && (
 			<div
 				className="fixed inset-0 z-40 bg-black/80 backdrop-blur-sm cursor-pointer animate-in fade-in flex items-center justify-center"
 				onClick={() => setReviewingCards(false)}
 				title="Cliquer pour cacher"
 			>
-			  <div className="absolute top-24 w-full text-center text-amber-500 font-serif italic tracking-widest uppercase text-xs sm:text-sm animate-pulse">
+			  <div
+				  className="absolute top-24 w-full text-center text-amber-500 font-serif italic tracking-widest uppercase text-xs sm:text-sm animate-pulse">
 				Appuyez n'importe où pour fermer
 			  </div>
 			</div>
 		)}
 
-		<div className="flex flex-col items-center justify-center gap-4 sm:gap-8 w-full max-w-5xl z-50">
-
-		  {/* INDICATEUR DE TOUR OU SCANNER */}
-		  <div className="flex items-center justify-center w-full shrink-0">
-			{isScannerActive && hasEnoughHiddenCards ? (
-				<div className="bg-blue-900/50 border border-blue-500/50 px-4 py-1.5 rounded-full backdrop-blur-sm animate-bounce">
-				  <p className="text-xs sm:text-sm text-blue-200 font-bold uppercase tracking-widest drop-shadow-md">
-					Ciblez une carte de {viewedPlayer.name}
-				  </p>
-				</div>
-			) : (
-				<div className="bg-black/60 border border-amber-900/40 px-4 sm:px-6 py-1.5 rounded-full shadow-lg backdrop-blur-sm">
-				  <p className="text-xs sm:text-sm font-serif italic text-zinc-100 tracking-widest text-center">
-					{iHaveClippers
-						? "C'est à TOI de couper !"
-						: `Au tour de ${activePlayerName} de couper...`}
-				  </p>
-				</div>
-			)}
-		  </div>
-
+		{/* INDICATEUR DE TOUR OU SCANNER */}
+		<div className="flex items-center justify-center w-full shrink-0 my-3">
+		  {isScannerActive && hasEnoughHiddenCards ? (
+			  <div
+				  className="bg-blue-900/50 border border-blue-500/50 px-4 py-1.5 rounded-full backdrop-blur-sm animate-bounce">
+				<p className="text-sm text-blue-200 font-bold uppercase tracking-widest drop-shadow-md">
+				  Ciblez une carte de {viewedPlayer.name}
+				</p>
+			  </div>
+		  ) : (
+			  <div
+				  className="bg-black/60 border border-amber-900/40 px-4 sm:px-6 py-1.5 rounded-full shadow-lg backdrop-blur-sm">
+				<p className="text-sm font-serif italic text-zinc-100 tracking-widest text-center">
+				  {iHaveClippers
+					  ? "C'est à TOI de couper !"
+					  : `Au tour de ${activePlayerName} de couper...`}
+				</p>
+			  </div>
+		  )}
+		</div>
+		<div className="flex flex-col items-center justify-center w-full max-w-5xl z-50 my-auto">
 		  {/* ZONE DES CARTES */}
-		  <div className={`flex items-center justify-center gap-3 sm:gap-6 w-full ${isScannerActive ? 'cursor-crosshair' : ''}`}>
+		  <div
+			  className={`flex items-center justify-center gap-3 sm:gap-6 w-full ${isScannerActive ? 'cursor-crosshair' : ''}`}>
 			<div className="flex flex-wrap justify-center gap-2 sm:gap-4">
 			  {playerToDisplay.cards.map((card) => {
 				const isInteractableForCut = iHaveClippers && isViewingOpponent && !card.isRevealed && !isReviewingCards;
@@ -86,8 +89,8 @@ export function GamePlayArea({
 			{/* Pince du joueur */}
 			{playerWithClippers === viewedPlayer.id && !isScannerActive && !isReviewingCards && (
 				<div className="flex items-center justify-center shrink-0 border-l border-amber-900/30 pl-3 sm:pl-6 ml-2 sm:ml-4">
-				  <div className="relative w-14 h-20 sm:w-20 sm:h-28 lg:w-24 lg:h-36 animate-in zoom-in duration-300">
-					<Image src={ASSETS.CLIPPER} alt="Pince" fill className="object-contain drop-shadow-[0_0_20px_white]" />
+				  <div className="relative w-24 h-36 sm:w-32 sm:h-48 sm:landscape:w-20 sm:landscape:h-28 lg:landscape:w-24 lg:landscape:h-36 animate-in zoom-in duration-300">
+					<Image src={ASSETS.CLIPPER} alt="Pince" fill className="object-contain drop-shadow-[0_0_20px_white]"/>
 				  </div>
 				</div>
 			)}
