@@ -56,6 +56,7 @@ export interface GameState {
   isTimerModeEnabled?: boolean;
   timerDuration?: number;
   turnEndTime?: number;
+  isChaosModeEnabled?: boolean;
 }
 
 export const GAME_CONFIG = {

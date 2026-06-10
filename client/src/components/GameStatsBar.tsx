@@ -17,6 +17,8 @@ export function GameStatsBar({
   const { gameState, isScannerActive, setScannerActive, isReviewingCards, isAnimatingCut, loupeAnimation } = useGameStore();
 
   const getRoleDistribution = () => {
+	// Mode Chaos : la distribution est secrète, masquée derrière des points d'interrogation
+	if (gameState?.isChaosModeEnabled) return { blue: '?', red: '?' };
 	switch (totalPlayers) {
 	  case 4: return { blue: '2-3', red: '1-2' };
 	  case 5: return { blue: '3', red: '2' };

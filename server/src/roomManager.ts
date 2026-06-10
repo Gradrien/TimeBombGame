@@ -1,6 +1,6 @@
 import {Server, Socket} from 'socket.io';
 import {AchievementDef, ACHIEVEMENTS, GameState, MAX_PLAYERS, ValidPlayerCount} from '@timebomb/shared';
-import {assignRoles, generateInitialDeck, distributeCards, gatherAndShuffleRemainingCards} from './gameEngine';
+import {assignRoles, assignRolesChaos, generateInitialDeck, distributeCards, gatherAndShuffleRemainingCards} from './gameEngine';
 import {
   initGameSessionStats,
   recordCut,
@@ -229,6 +229,7 @@ export function setupSocketHandlers(io: Server, socket: Socket) {
 	  playerWithClippers: '',
 	  isLoupeModeEnabled: false,
 	  isTimerModeEnabled: false,
+	  isChaosModeEnabled: false,
 	  timerDuration: 15,
 	  teamHasLoupe: false,
 	  revealedCards: [],
@@ -248,6 +249,18 @@ export function setupSocketHandlers(io: Server, socket: Socket) {
 	  const me = room.players.find(p => p.socketId === socket.id);
 	  if (me && me.isHost) {
 		room.isLoupeModeEnabled = enabled;
+		broadcastGameState(io, roomId);
+	  }
+	}
+  });
+
+  // --- Handler Toggle Chaos ---
+  socket.on('toggleChaosMode', (roomId: string, enabled: boolean) => {
+	const room = activeRooms.get(roomId);
+	if (room && room.status === 'LOBBY') {
+	  const me = room.players.find(p => p.socketId === socket.id);
+	  if (me && me.isHost) {
+		room.isChaosModeEnabled = enabled;
 		broadcastGameState(io, roomId);
 	  }
 	}
@@ -301,7 +314,11 @@ export function setupSocketHandlers(io: Server, socket: Socket) {
 	room.teamHasLoupe = false;
 	room.stats = initGameSessionStats();
 
-	assignRoles(room.players, room.isLoupeModeEnabled);
+	if (room.isChaosModeEnabled) {
+	  assignRolesChaos(room.players);
+	} else {
+	  assignRoles(room.players, room.isLoupeModeEnabled);
+	}
 	const deck = generateInitialDeck(room.players.length as ValidPlayerCount, room.isLoupeModeEnabled);
 	distributeCards(deck, room.players);
 	broadcastGameState(io, roomId);

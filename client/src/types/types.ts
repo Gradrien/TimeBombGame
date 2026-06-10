@@ -77,6 +77,7 @@ export interface GameStoreProps {
   useLoupe: (roomId: string, targetPlayerId: string, cardId: string) => void;
 
   toggleTimerMode: (roomId: string, enabled: boolean, duration: number) => void;
+  toggleChaosMode: (roomId: string, enabled: boolean) => void;
 
   setPlayerName: (name: string) => void;
   setPinCode: (pin: string) => void;

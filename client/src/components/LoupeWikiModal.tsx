@@ -5,7 +5,7 @@ import {WikiModalProps} from "@/types/types";
 
 export function LoupeWikiModal({isOpen, onClose}: WikiModalProps) {
   return (
-	  <WikiModal isOpen={isOpen} onClose={onClose} title="Tutoriel : Extension Loupe">
+	  <WikiModal isOpen={isOpen} onClose={onClose} title="Tutoriel : Mode Loupe">
 		{/* SECTION : LA LOUPE */}
 		<div className="flex flex-col sm:flex-row gap-6 items-start">
 		  <div
@@ -15,10 +15,12 @@ export function LoupeWikiModal({isOpen, onClose}: WikiModalProps) {
 
 		  <div className="flex-1 flex flex-col gap-3">
 			<h3 className="text-xl font-bold uppercase tracking-wide text-[#60a5fa] drop-shadow-[0_0_8px_rgba(96,165,250,0.4)]">
-			  L'Objet : La Loupe
+			  Nouvelle Carte : La Loupe
 			</h3>
 			<p className="text-sm sm:text-base text-white/80 leading-relaxed text-justify">
-			  La loupe permet à l'équipe de révéler secrètement l'une des cartes d'un autre joueur.
+			  La Loupe est une carte remplaçant une carte vide et permet à l'équipe de révéler secrètement l'une des
+			  cartes d'un autre joueur. Une fois trouvée la Loupe peut être utilisée n'importe quand (sauf au dernier
+			  round), par n'importe qui, et ne consomme pas de coupe à son utilisation.
 			  Cependant, la technologie est instable et son efficacité diminue au fil des manches.
 			</p>
 
@@ -32,7 +34,7 @@ export function LoupeWikiModal({isOpen, onClose}: WikiModalProps) {
 				<li className="flex justify-between items-center"><span className="text-white/60">Manche 3</span> <span
 					className="text-orange-400">80%</span></li>
 				<li className="flex justify-between items-center"><span className="text-white/60">Manche 4</span> <span
-					className="text-red-500 line-through opacity-50">Inutilisable</span></li>
+					className="text-red-400">Inutilisable</span></li>
 			  </ul>
 			</div>
 		  </div>
@@ -49,7 +51,7 @@ export function LoupeWikiModal({isOpen, onClose}: WikiModalProps) {
 
 		  <div className="flex-1 flex flex-col gap-3">
 			<h3 className="text-xl font-bold uppercase tracking-wide text-[#ef4444] drop-shadow-[0_0_8px_rgba(239,68,68,0.4)]">
-			  Le Rôle : Brouilleur
+			  Nouveau Rôle : Le Brouilleur
 			</h3>
 			<p className="text-sm sm:text-base text-white/80 leading-relaxed text-justify">
 			  Un agent furtif de l'équipe de Moriarty équipé d'une technologie de contre-espionnage.
@@ -60,8 +62,8 @@ export function LoupeWikiModal({isOpen, onClose}: WikiModalProps) {
 			  <h4 className="text-xs uppercase text-[#ef4444] font-bold mb-2 tracking-widest">Pouvoir Passif</h4>
 			  <p className="text-sm text-white/90">
 				Si un joueur tente d'utiliser la Loupe sur le Brouilleur (quelle que soit la manche), il y a <span
-				  className="font-bold text-[#ef4444] text-base drop-shadow-md">90% de chances</span> que la machine
-				soit brouillée et que la lecture échoue.
+				  className="font-bold text-[#ef4444] text-base drop-shadow-md">90% de chances</span> que l'enquête
+				échoue et que la Loupe ne révèle aucune carte.
 			  </p>
 			</div>
 		  </div>

@@ -160,6 +160,11 @@ export const useGameStore = create<GameStoreProps>((set, get) => ({
 	if (socket) socket.emit('toggleTimerMode', roomId, enabled, duration);
   },
 
+  toggleChaosMode: (roomId, enabled) => {
+	const {socket} = get();
+	if (socket) socket.emit('toggleChaosMode', roomId, enabled);
+  },
+
   useLoupe: (roomId, targetPlayerId, cardId) => {
 	const {socket} = get();
 	if (socket) {

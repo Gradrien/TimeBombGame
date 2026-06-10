@@ -20,6 +20,19 @@ export function assignRoles(players: Player[], useLoupe: boolean = false): void 
   });
 }
 
+/**
+ * Mode Chaos : la distribution des rôles est entièrement aléatoire.
+ * Chaque joueur reçoit indépendamment SHERLOCK ou MORIARTY (50/50).
+ */
+export function assignRolesChaos(players: Player[]): void {
+  const count = players.length as ValidPlayerCount;
+  if (!GAME_CONFIG[count]) throw new Error("Le nombre de joueurs doit être entre 4 et 12");
+
+  players.forEach(player => {
+	player.role = Math.random() < 0.5 ? 'SHERLOCK' : 'MORIARTY';
+  });
+}
+
 export function generateInitialDeck(playerCount: ValidPlayerCount, useLoupe: boolean = false): Card[] {
   const config = GAME_CONFIG[playerCount];
   const deck: Card[] = [];
