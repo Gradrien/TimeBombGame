@@ -228,10 +228,12 @@ export function LobbyView({gameState, playerName, onStart}: LobbyViewProps) {
 				  <div className="absolute inset-0 opacity-10 pointer-events-none group-hover:opacity-20"
 					   style={{backgroundImage: "repeating-linear-gradient(45deg, rgba(255,255,255,0.05) 0px, rgba(255,255,255,0.05) 2px, transparent 2px, transparent 6px)"}}/>
 				  <span
-					  className="font-serif tracking-wide text-[#f3e7d3] font-bold drop-shadow-sm flex items-center relative z-10">
+					  className={`font-serif tracking-wide font-bold drop-shadow-sm flex items-center relative z-10 ${p.connected === false ? 'text-[#8a6842] line-through opacity-60' : 'text-[#f3e7d3]'}`}>
               {p.name}
 					{p.name === playerName &&
-                        <span className="text-[#c9a56d] text-sm ml-2 italic tracking-wide">(Toi)</span>}
+                        <span className="text-[#c9a56d] text-sm ml-2 italic tracking-wide no-underline">(Toi)</span>}
+					{p.connected === false &&
+                        <span className="text-[#b08a57] text-xs ml-2 italic tracking-wide no-underline">(déconnecté…)</span>}
             </span>
 
 				  {p.isHost && (

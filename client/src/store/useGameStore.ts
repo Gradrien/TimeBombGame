@@ -55,13 +55,15 @@ export const useGameStore = create<GameStoreProps>((set, get) => ({
 	  socket.emit('login', name, pin, (response: any) => {
 		if (response.success) {
 		  const user = response.user;
-		  set({ playerId: user.id, playerName: user.username, pinCode: user.pinCode, error: null });
+		  // Le serveur ne renvoie jamais le secret (hash). On conserve localement
+		  // le PIN saisi par le joueur, uniquement pour préremplir le formulaire.
+		  set({ playerId: user.id, playerName: user.username, pinCode: pin, error: null });
 		  const storage = getStorageType();
 		  if (storage) {
 			storage.setItem('timebomb_session', JSON.stringify({
 			  id: user.id,
 			  username: user.username,
-			  pinCode: user.pinCode
+			  pinCode: pin
 			}));
 		  }
 		  resolve(true);
