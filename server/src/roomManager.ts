@@ -21,6 +21,16 @@ const prisma = new PrismaClient({adapter});
 
 const activeRooms = new Map<string, GameState>();
 const activeTimers = new Map<string, NodeJS.Timeout>();
+/** Pending seat-removal timers for disconnected players, keyed `${roomId}:${playerId}`. */
+const disconnectTimers = new Map<string, NodeJS.Timeout>();
+
+/**
+ * Grace period granted to a disconnected player before their seat may be
+ * reclaimed. Long enough to absorb page refreshes, tab switches and short
+ * network drops so an in-progress game is never interrupted by a transient
+ * websocket loss.
+ */
+const RECONNECT_GRACE_MS = 60_000;
 
 function generateRoomCode() {
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
@@ -181,6 +191,125 @@ function handleCutLogic(io: Server, roomId: string, sourcePlayerId: string, targ
 }
 
 
+// --- GESTION DES CONNEXIONS / RECONNEXIONS ---
+
+function disconnectKey(roomId: string, playerId: string): string {
+  return `${roomId}:${playerId}`;
+}
+
+/** Cancels a player's pending seat removal (called whenever they (re)connect). */
+function cancelScheduledRemoval(roomId: string, playerId: string) {
+  const key = disconnectKey(roomId, playerId);
+  const timer = disconnectTimers.get(key);
+  if (timer) {
+    clearTimeout(timer);
+    disconnectTimers.delete(key);
+  }
+}
+
+/** Fully tears down a room and every timer it owns (prevents memory leaks). */
+function destroyRoom(roomId: string) {
+  clearTurnTimer(roomId);
+  const room = activeRooms.get(roomId);
+  if (room) room.players.forEach(p => cancelScheduledRemoval(roomId, p.id));
+  activeRooms.delete(roomId);
+}
+
+/** Removes a player from a room, transferring host or destroying the room as needed. */
+function removePlayer(io: Server, roomId: string, playerId: string) {
+  const room = activeRooms.get(roomId);
+  if (!room) return;
+  cancelScheduledRemoval(roomId, playerId);
+
+  const index = room.players.findIndex(p => p.id === playerId);
+  if (index === -1) return;
+
+  room.players.splice(index, 1);
+  if (room.players.length === 0) {
+    destroyRoom(roomId);
+    return;
+  }
+  // Transfère l'ownership si l'hôte part.
+  if (!room.players.some(p => p.isHost)) room.players[0].isHost = true;
+
+  // La Loupe nécessite au moins 5 joueurs : on la désactive automatiquement en dessous
+  if (room.players.length < 5) room.isLoupeModeEnabled = false;
+
+  broadcastGameState(io, roomId);
+}
+
+/** Binds a player to their current socket and marks them connected. */
+function markConnected(roomId: string, playerId: string, socketId: string) {
+  cancelScheduledRemoval(roomId, playerId);
+  const player = activeRooms.get(roomId)?.players.find(p => p.id === playerId);
+  if (player) {
+    player.socketId = socketId;
+    player.connected = true;
+  }
+}
+
+/**
+ * Handles a socket drop: the player is flagged as disconnected (peers see it
+ * immediately) and a grace timer is armed. When it fires we reclaim the seat if
+ * the room is still in the lobby, and destroy any fully-abandoned room.
+ */
+function handleDisconnect(io: Server, roomId: string, playerId: string) {
+  const room = activeRooms.get(roomId);
+  const player = room?.players.find(p => p.id === playerId);
+  if (!room || !player) return;
+
+  player.connected = false;
+  player.socketId = undefined;
+  broadcastGameState(io, roomId);
+
+  cancelScheduledRemoval(roomId, playerId);
+  const timer = setTimeout(() => {
+    disconnectTimers.delete(disconnectKey(roomId, playerId));
+    const current = activeRooms.get(roomId);
+    const stillThere = current?.players.find(p => p.id === playerId);
+    if (!current || !stillThere || stillThere.connected) return; // revenu entre-temps
+
+    // Room totalement abandonnée -> on la détruit (évite les rooms/timers fantômes).
+    if (current.players.every(p => !p.connected)) {
+      destroyRoom(roomId);
+      return;
+    }
+
+    // Dans le lobby, un absent libère sa place ; en pleine partie on garde le
+    // siège pour une reconnexion ultérieure (l'état reste cohérent et les
+    // autres peuvent toujours voter l'abandon).
+    if (current.status === 'LOBBY') {
+      removePlayer(io, roomId, playerId);
+    }
+  }, RECONNECT_GRACE_MS);
+
+  disconnectTimers.set(disconnectKey(roomId, playerId), timer);
+}
+
+/** Resets a room to its lobby state. Shared by restart & surrender (DRY). */
+function resetRoomToLobby(roomId: string) {
+  const room = activeRooms.get(roomId);
+  if (!room) return;
+  clearTurnTimer(roomId);
+
+  room.status = 'LOBBY';
+  room.phase = 'NOT_STARTED';
+  room.readyPlayers = [];
+  room.revealedCards = [];
+  room.currentRound = 1;
+  room.cardsRevealedThisRound = 0;
+  room.totalDefusesFound = 0;
+  room.teamHasLoupe = false;
+  room.surrenderVotes = [];
+  delete room.stats;
+
+  room.players.forEach(p => {
+    p.cards = [];
+    p.secretCards = [];
+    delete p.role;
+  });
+}
+
 export function setupSocketHandlers(io: Server, socket: Socket) {
 
   socket.on('login', async (username: string, pin: string, callback: Function) => {
@@ -196,7 +325,7 @@ export function setupSocketHandlers(io: Server, socket: Socket) {
 	for (const [roomId, room] of activeRooms.entries()) {
 	  const player = room.players.find(p => p.id === playerId);
 	  if (player) {
-		player.socketId = socket.id;
+		markConnected(roomId, playerId, socket.id);
 		socket.join(roomId);
 		io.to(socket.id).emit('gameStateUpdated', sanitizeStateForPlayer(room, playerId));
 		broadcastGameState(io, roomId);
@@ -237,7 +366,7 @@ export function setupSocketHandlers(io: Server, socket: Socket) {
 	  surrenderVotes: [],
 	};
 
-	room.players.push({id: playerId, name: playerName, cards: [], isHost: true, socketId: socket.id});
+	room.players.push({id: playerId, name: playerName, cards: [], isHost: true, socketId: socket.id, connected: true});
 	activeRooms.set(roomId, room);
 	socket.join(roomId);
 	broadcastGameState(io, roomId);
@@ -285,7 +414,8 @@ export function setupSocketHandlers(io: Server, socket: Socket) {
 
 	const existingPlayer = room.players.find(p => p.id === playerId);
 	if (existingPlayer) {
-	  existingPlayer.socketId = socket.id;
+	  // Reconnexion / rejoin : on rebranche le joueur sur son siège existant.
+	  markConnected(roomId, playerId, socket.id);
 	  socket.join(roomId);
 	  broadcastGameState(io, roomId);
 	  return;
@@ -294,7 +424,7 @@ export function setupSocketHandlers(io: Server, socket: Socket) {
 	if (room.status !== 'LOBBY') return socket.emit('gameError', 'Partie déjà en cours, lobby fermé');
 	if (room.players.length >= MAX_PLAYERS) return socket.emit('gameError', `Room complète (${MAX_PLAYERS} joueurs max)`);
 
-	room.players.push({id: playerId, name: playerName, cards: [], isHost: false, socketId: socket.id} as any);
+	room.players.push({id: playerId, name: playerName, cards: [], isHost: false, socketId: socket.id, connected: true});
 	socket.join(roomId);
 	broadcastGameState(io, roomId);
   });
@@ -492,66 +622,27 @@ export function setupSocketHandlers(io: Server, socket: Socket) {
 	const room = activeRooms.get(roomId);
 	if (!room) return;
 
-	const playerIndex = room.players.findIndex(p => (p as any).socketId === socket.id);
-	if (playerIndex !== -1) {
-	  room.players.splice(playerIndex, 1);
-	  if (room.players.length === 0) {
-		clearTurnTimer(roomId);
-		activeRooms.delete(roomId);
-	  } else {
-		// Transfère l'ownership si l'hôte part
-		if (!room.players.some(p => p.isHost)) room.players[0].isHost = true;
-		// La Loupe nécessite au moins 5 joueurs : on la désactive automatiquement en dessous
-		if (room.players.length < 5) room.isLoupeModeEnabled = false;
-		broadcastGameState(io, roomId);
-	  }
-	}
+	// Départ explicite : on libère immédiatement le siège (pas de délai de grâce).
+	const player = room.players.find(p => p.socketId === socket.id);
+	if (player) removePlayer(io, roomId, player.id);
 	socket.leave(roomId);
   });
 
   socket.on('restartGame', (roomId: string) => {
-	const room = activeRooms.get(roomId);
-	if (!room) return;
-
-	clearTurnTimer(roomId);
-
-	room.status = 'LOBBY';
-	room.phase = "NOT_STARTED";
-	room.readyPlayers = [];
-	room.revealedCards = [];
-	room.currentRound = 1;
-	room.cardsRevealedThisRound = 0;
-	room.totalDefusesFound = 0;
-	room.teamHasLoupe = false;
-	room.surrenderVotes = [];
-	delete room.stats;
-
-	room.players.forEach(p => {
-	  p.cards = [];
-	  p.secretCards = [];
-	  delete p.role;
-	});
-
+	if (!activeRooms.has(roomId)) return;
+	resetRoomToLobby(roomId);
 	broadcastGameState(io, roomId);
   });
 
   socket.on('disconnect', () => {
+	console.log('💨 Joueur déconnecté:', socket.id);
+	// On marque le joueur comme déconnecté et on arme le délai de grâce, plutôt
+	// que de le retirer immédiatement : un rafraîchissement ou un blip réseau ne
+	// doit pas l'éjecter de sa partie en cours.
 	for (const [roomId, room] of activeRooms.entries()) {
-	  const playerIndex = room.players.findIndex(p => (p as any).socketId === socket.id);
-	  if (playerIndex !== -1) {
-		if (room.status === 'LOBBY' || room.status === 'FINISHED') {
-		  room.players.splice(playerIndex, 1);
-		  if (room.players.length === 0) {
-			clearTurnTimer(roomId);
-			activeRooms.delete(roomId);
-		  } else {
-			// Si l'hôte part, on donne le lead au suivant
-			if (!room.players.some(p => p.isHost)) room.players[0].isHost = true;
-			// La Loupe nécessite au moins 5 joueurs : on la désactive automatiquement en dessous
-			if (room.players.length < 5) room.isLoupeModeEnabled = false;
-			broadcastGameState(io, roomId);
-		  }
-		}
+	  const player = room.players.find(p => p.socketId === socket.id);
+	  if (player) {
+		handleDisconnect(io, roomId, player.id);
 		break;
 	  }
 	}
@@ -600,25 +691,7 @@ export function setupSocketHandlers(io: Server, socket: Socket) {
 	const requiredVotes = Math.floor(room.players.length / 2) + 1;
 
 	if (room.surrenderVotes.length >= requiredVotes) {
-	  clearTurnTimer(roomId);
-
-	  room.status = 'LOBBY';
-	  room.phase = 'NOT_STARTED';
-	  room.surrenderVotes = [];
-	  room.readyPlayers = [];
-	  room.revealedCards = [];
-	  room.currentRound = 1;
-	  room.cardsRevealedThisRound = 0;
-	  room.totalDefusesFound = 0;
-	  room.teamHasLoupe = false;
-	  delete room.stats;
-
-	  room.players.forEach(p => {
-		p.cards = [];
-		p.secretCards = [];
-		delete p.role;
-	  });
-
+	  resetRoomToLobby(roomId);
 	  io.to(roomId).emit('gameSurrendered');
 	}
 

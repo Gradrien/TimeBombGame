@@ -3,6 +3,7 @@ import { PrismaClient } from '../src/generated/client/index';
 import { Pool } from 'pg';
 import { PrismaPg } from '@prisma/adapter-pg';
 import 'dotenv/config';
+import { hashPassword } from '../src/services/passwordService';
 
 const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 const adapter = new PrismaPg(pool);
@@ -25,6 +26,10 @@ const ALL_ACHIEVEMENTS = [
 
 async function main() {
   console.log('🌱 Début du seeding de la base de données...');
+
+  // Les PIN de démonstration sont hashés comme le ferait une vraie inscription.
+  const adrienPin = await hashPassword('1234');
+  const legendPin = await hashPassword('9999');
 
   // 1. Utilisateur classique : Adrien
   const userAdrien = await prisma.user.upsert({
@@ -57,7 +62,7 @@ async function main() {
 	},
 	create: {
 	  username: 'Adrien',
-	  pinCode: '1234',
+	  pinCode: adrienPin,
 	  gamesPlayed: 50,
 	  gamesWon: 35,
 	  gamesAsSherlock: 30,
@@ -108,7 +113,7 @@ async function main() {
 	},
 	create: {
 	  username: 'Légende',
-	  pinCode: '9999',
+	  pinCode: legendPin,
 	  gamesPlayed: 200,
 	  gamesWon: 150,
 	  gamesAsSherlock: 100,
