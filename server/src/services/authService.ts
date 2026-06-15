@@ -42,6 +42,9 @@ export async function authenticatePlayer(username: string, pin: string) {
   if (!cleanUsername) {
     throw new Error("Le pseudo est obligatoire.");
   }
+  if (cleanUsername.length < 3 || cleanUsername.length > 12) {
+    throw new Error("Le pseudo doit contenir entre 3 et 12 caractères.");
+  }
   if (typeof pin !== 'string' || pin.length < PIN_MIN_LENGTH || pin.length > PIN_MAX_LENGTH) {
     throw new Error(`Le code PIN doit contenir entre ${PIN_MIN_LENGTH} et ${PIN_MAX_LENGTH} caractères.`);
   }
