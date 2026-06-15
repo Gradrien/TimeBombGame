@@ -19,6 +19,13 @@ export interface Player {
   cards: Card[];
   isHost: boolean;
   secretCards?: CardType[];
+  /**
+   * Live socket connection state. `false` means the player temporarily lost
+   * their websocket (refresh, tab switch, network blip) and is within the
+   * reconnection grace period — their seat is kept so the game can continue
+   * without interruption. Defaults to connected when omitted.
+   */
+  connected?: boolean;
 }
 
 export interface GameSessionStats {
