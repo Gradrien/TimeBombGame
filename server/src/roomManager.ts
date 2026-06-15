@@ -501,6 +501,8 @@ export function setupSocketHandlers(io: Server, socket: Socket) {
 	  } else {
 		// Transfère l'ownership si l'hôte part
 		if (!room.players.some(p => p.isHost)) room.players[0].isHost = true;
+		// La Loupe nécessite au moins 5 joueurs : on la désactive automatiquement en dessous
+		if (room.players.length < 5) room.isLoupeModeEnabled = false;
 		broadcastGameState(io, roomId);
 	  }
 	}
@@ -545,6 +547,8 @@ export function setupSocketHandlers(io: Server, socket: Socket) {
 		  } else {
 			// Si l'hôte part, on donne le lead au suivant
 			if (!room.players.some(p => p.isHost)) room.players[0].isHost = true;
+			// La Loupe nécessite au moins 5 joueurs : on la désactive automatiquement en dessous
+			if (room.players.length < 5) room.isLoupeModeEnabled = false;
 			broadcastGameState(io, roomId);
 		  }
 		}

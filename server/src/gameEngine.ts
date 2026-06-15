@@ -21,16 +21,40 @@ export function assignRoles(players: Player[], useLoupe: boolean = false): void 
 }
 
 /**
- * Mode Chaos : la distribution des rôles est entièrement aléatoire.
- * Chaque joueur reçoit indépendamment SHERLOCK ou MORIARTY (50/50).
+ * Mode Chaos : la distribution des rôles suit l'une des issues suivantes :
+ * - 20% : tout le monde est Moriarty
+ * - 10% : tout le monde est Sherlock
+ * - 10% : un seul Sherlock, les autres sont Moriarty
+ * - 60% : distribution aléatoire (chaque joueur reçoit indépendamment SHERLOCK ou MORIARTY, 50/50)
  */
 export function assignRolesChaos(players: Player[]): void {
   const count = players.length as ValidPlayerCount;
   if (!GAME_CONFIG[count]) throw new Error("Le nombre de joueurs doit être entre 4 et 12");
 
-  players.forEach(player => {
-	player.role = Math.random() < 0.5 ? 'SHERLOCK' : 'MORIARTY';
-  });
+  const roll = Math.random();
+
+  if (roll < 0.2) {
+	// 20% : tout le monde est Moriarty
+	players.forEach(player => {
+	  player.role = 'MORIARTY';
+	});
+  } else if (roll < 0.3) {
+	// 10% : tout le monde est Sherlock
+	players.forEach(player => {
+	  player.role = 'SHERLOCK';
+	});
+  } else if (roll < 0.4) {
+	// 10% : un seul Sherlock, les autres sont Moriarty
+	const sherlockIndex = Math.floor(Math.random() * players.length);
+	players.forEach((player, index) => {
+	  player.role = index === sherlockIndex ? 'SHERLOCK' : 'MORIARTY';
+	});
+  } else {
+	// 60% : distribution aléatoire
+	players.forEach(player => {
+	  player.role = Math.random() < 0.5 ? 'SHERLOCK' : 'MORIARTY';
+	});
+  }
 }
 
 export function generateInitialDeck(playerCount: ValidPlayerCount, useLoupe: boolean = false): Card[] {
