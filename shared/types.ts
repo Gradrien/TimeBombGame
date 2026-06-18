@@ -49,6 +49,11 @@ export interface GameState {
   phase: GamePhase;
   players: Player[];
   readyPlayers: string[];
+  /**
+   * Ids of players who, on the end screen, have clicked "Rejouer" and gone back
+   * to the menus. The room only returns to the lobby once everyone present has.
+   */
+  restartReady?: string[];
   revealedCards: Card[];
   currentRound: number;
   cardsRevealedThisRound: number;

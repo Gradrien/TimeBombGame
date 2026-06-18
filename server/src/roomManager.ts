@@ -231,6 +231,14 @@ function removePlayer(io: Server, roomId: string, playerId: string) {
   }
   // Transfère l'ownership si l'hôte part.
   if (!room.players.some(p => p.isHost)) room.players[0].isHost = true;
+
+  // La Loupe nécessite au moins 5 joueurs : on la désactive automatiquement en dessous
+  if (room.players.length < 5) room.isLoupeModeEnabled = false;
+
+  // Si un joueur quitte l'écran de fin, les restants déjà prêts ne doivent pas
+  // rester bloqués : on bascule au lobby dès que tout le monde est prêt.
+  if (room.status === 'FINISHED' && everyoneReadyToRestart(room)) resetRoomToLobby(roomId);
+
   broadcastGameState(io, roomId);
 }
 
@@ -256,6 +264,10 @@ function handleDisconnect(io: Server, roomId: string, playerId: string) {
 
   player.connected = false;
   player.socketId = undefined;
+
+  // Un déconnecté sur l'écran de fin ne doit pas empêcher les autres de relancer.
+  if (room.status === 'FINISHED' && everyoneReadyToRestart(room)) resetRoomToLobby(roomId);
+
   broadcastGameState(io, roomId);
 
   cancelScheduledRemoval(roomId, playerId);
@@ -282,6 +294,17 @@ function handleDisconnect(io: Server, roomId: string, playerId: string) {
   disconnectTimers.set(disconnectKey(roomId, playerId), timer);
 }
 
+/**
+ * True once every player still present has either gone back to the menus
+ * ("Rejouer") or is disconnected — i.e. nobody connected is left on the end
+ * screen. Used to decide when the whole room may return to the lobby.
+ */
+function everyoneReadyToRestart(room: GameState): boolean {
+  if (room.players.length === 0) return false;
+  const ready = room.restartReady ?? [];
+  return room.players.every(p => ready.includes(p.id) || p.connected === false);
+}
+
 /** Resets a room to its lobby state. Shared by restart & surrender (DRY). */
 function resetRoomToLobby(roomId: string) {
   const room = activeRooms.get(roomId);
@@ -291,6 +314,7 @@ function resetRoomToLobby(roomId: string) {
   room.status = 'LOBBY';
   room.phase = 'NOT_STARTED';
   room.readyPlayers = [];
+  room.restartReady = [];
   room.revealedCards = [];
   room.currentRound = 1;
   room.cardsRevealedThisRound = 0;
@@ -624,9 +648,41 @@ export function setupSocketHandlers(io: Server, socket: Socket) {
 	socket.leave(roomId);
   });
 
+  socket.on('kickPlayer', (roomId: string, targetPlayerId: string) => {
+	const room = activeRooms.get(roomId);
+	// On ne peut expulser que depuis le lobby (jamais en pleine partie).
+	if (!room || room.status !== 'LOBBY') return;
+
+	const me = room.players.find(p => p.socketId === socket.id);
+	if (!me || !me.isHost) return;        // Seul l'hôte expulse.
+	if (me.id === targetPlayerId) return; // L'hôte ne peut pas s'expulser lui-même.
+
+	const target = room.players.find(p => p.id === targetPlayerId);
+	if (!target) return;
+
+	// On prévient le joueur expulsé pour qu'il revienne au menu, puis on libère son siège.
+	if (target.socketId) {
+	  io.to(target.socketId).emit('kicked');
+	  io.sockets.sockets.get(target.socketId)?.leave(roomId);
+	}
+
+	removePlayer(io, roomId, targetPlayerId);
+  });
+
   socket.on('restartGame', (roomId: string) => {
-	if (!activeRooms.has(roomId)) return;
-	resetRoomToLobby(roomId);
+	const room = activeRooms.get(roomId);
+	if (!room || room.status !== 'FINISHED') return;
+
+	const player = room.players.find(p => p.socketId === socket.id);
+	if (!player) return;
+
+	// "Rejouer" est individuel : le joueur rejoint les menus et attend les autres.
+	if (!room.restartReady) room.restartReady = [];
+	if (!room.restartReady.includes(player.id)) room.restartReady.push(player.id);
+
+	// La room ne retourne au lobby que lorsque tout le monde a cliqué.
+	if (everyoneReadyToRestart(room)) resetRoomToLobby(roomId);
+
 	broadcastGameState(io, roomId);
   });
 

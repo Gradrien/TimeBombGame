@@ -45,30 +45,30 @@ export function GameStatsBar({
   const isGamePaused = isReviewingCards || isAnimatingCut || loupeAnimation !== null;
 
   return (
-	  <div className="shrink-0 border-b border-amber-900/20 bg-linear-to-b from-black/60 to-transparent px-4 py-3 landscape:px-6 landscape:py-2 z-40">
+	  <div className="relative shrink-0 border-b border-[#c9a56d]/20 bg-gradient-to-b from-[#1a1510]/80 to-transparent px-4 py-3 landscape:px-6 landscape:py-2 z-40">
 		<div className="mx-auto flex w-full max-w-6xl flex-col gap-5 landscape:grid landscape:grid-cols-[1fr_auto_1fr] landscape:items-center">
 
 		  {/* STATS + RÔLES */}
 		  <div className="flex items-start justify-between gap-3 landscape:flex-col landscape:items-start landscape:justify-center shrink-0">
 			<div className="flex items-center gap-2">
-			  <div className="flex items-center gap-2 rounded border border-blue-500/40 bg-blue-900/40 px-2 py-1 shadow-inner">
+			  <div className="flex items-center gap-2 rounded-lg border border-[#60a5fa]/40 bg-[#1d4463]/40 px-2 py-1 shadow-inner">
 				<div className="relative h-9 w-7 landscape:h-10 landscape:w-8">
 				  <Image src={getRoleImage('SHERLOCK')} alt="Sherlock" fill className="object-contain" />
 				</div>
-				<span className="text-base font-black text-blue-400 landscape:text-lg">{dist.blue}</span>
+				<span className="text-base font-black text-[#60a5fa] landscape:text-lg">{dist.blue}</span>
 			  </div>
 
-			  <div className="flex items-center gap-2 rounded border border-red-500/40 bg-red-900/40 px-2 py-1 shadow-inner">
+			  <div className="flex items-center gap-2 rounded-lg border border-[#ef4444]/40 bg-[#7f1d1d]/40 px-2 py-1 shadow-inner">
 				<div className="relative h-9 w-7 landscape:h-10 landscape:w-8">
 				  <Image src={getRoleImage('MORIARTY')} alt="Moriarty" fill className="object-contain" />
 				</div>
-				<span className="text-base font-black text-red-400 landscape:text-lg">{dist.red}</span>
+				<span className="text-base font-black text-[#ef4444] landscape:text-lg">{dist.red}</span>
 			  </div>
 			</div>
 
 			<div className="flex flex-col items-end gap-1 landscape:items-start">
-			  <p className="text-[11px] font-black uppercase tracking-[0.18em] text-zinc-50 landscape:text-xs">Manche {currentRound}</p>
-			  <p className="text-[11px] font-black uppercase tracking-[0.18em] text-zinc-50 landscape:text-xs">Coupes restantes : {cutsRemaining}</p>
+			  <p className="text-[11px] font-serif font-bold uppercase tracking-[0.18em] text-[#f3e7d3] landscape:text-xs">Manche {currentRound}</p>
+			  <p className="text-[11px] font-serif font-bold uppercase tracking-[0.18em] text-[#f3e7d3] landscape:text-xs">Coupes restantes : {cutsRemaining}</p>
 			</div>
 		  </div>
 
@@ -98,14 +98,14 @@ export function GameStatsBar({
 
 		  {/* CARTES DÉSARMÉES */}
 		  <div className="flex min-w-0 flex-col items-center gap-1.5 landscape:items-end shrink-0">
-			<p className="text-[11px] font-black uppercase tracking-widest text-green-500 landscape:text-xs">
+			<p className="text-[11px] font-serif font-bold uppercase tracking-widest text-[#4ade80] landscape:text-xs drop-shadow-[0_0_6px_rgba(74,222,128,0.4)]">
 			  Désarmés : {defusesFound}/{defusesNeeded}
 			</p>
 
 			<div className="flex items-center py-2">
 			  {/* Indicateur discret du nombre de cartes masquées */}
 			  {hiddenCardsCount > 0 && (
-				  <span className="text-[10px] sm:text-xs font-black uppercase tracking-[0.18em] text-zinc-50 mr-3 landscape:mr-4">
+				  <span className="text-[10px] sm:text-xs font-black uppercase tracking-[0.18em] text-[#c9a56d] mr-3 landscape:mr-4">
                 +{hiddenCardsCount}
               </span>
 			  )}

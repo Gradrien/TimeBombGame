@@ -39,7 +39,7 @@ export function GamePlayArea({
 				title="Cliquer pour cacher"
 			>
 			  <div
-				  className="absolute top-24 w-full text-center text-amber-500 font-serif italic tracking-widest uppercase text-xs sm:text-sm animate-pulse">
+				  className="absolute top-24 w-full text-center text-[#c9a56d] font-serif italic tracking-widest uppercase text-xs sm:text-sm animate-pulse">
 				Appuyez n'importe où pour fermer
 			  </div>
 			</div>
@@ -49,15 +49,15 @@ export function GamePlayArea({
 		<div className="flex items-center justify-center w-full shrink-0 my-3">
 		  {isScannerActive && hasEnoughHiddenCards ? (
 			  <div
-				  className="bg-blue-900/50 border border-blue-500/50 px-4 py-1.5 rounded-full backdrop-blur-sm animate-bounce">
-				<p className="text-sm text-blue-200 font-bold uppercase tracking-widest drop-shadow-md">
+				  className="bg-[#1d4463]/60 border border-[#60a5fa]/50 px-4 py-1.5 rounded-full backdrop-blur-sm animate-bounce shadow-[0_0_14px_rgba(96,165,250,0.35)]">
+				<p className="text-sm text-[#cfe3ff] font-bold uppercase tracking-widest drop-shadow-md">
 				  Ciblez une carte de {viewedPlayer.name}
 				</p>
 			  </div>
 		  ) : (
 			  <div
-				  className="bg-black/60 border border-amber-900/40 px-4 sm:px-6 py-1.5 rounded-full shadow-lg backdrop-blur-sm">
-				<p className="text-sm font-serif italic text-zinc-100 tracking-widest text-center">
+				  className={`px-4 sm:px-6 py-1.5 rounded-full shadow-lg backdrop-blur-sm border ${iHaveClippers ? 'bg-[#1d4463]/50 border-[#c9a56d]/60 shadow-[0_0_14px_rgba(201,165,109,0.3)]' : 'bg-[#1a1510]/70 border-[#8a6842]/50'}`}>
+				<p className={`text-sm font-serif italic tracking-widest text-center ${iHaveClippers ? 'text-[#f3e7d3] font-bold not-italic uppercase' : 'text-[#c9a56d]'}`}>
 				  {iHaveClippers
 					  ? "C'est à TOI de couper !"
 					  : `Au tour de ${activePlayerName} de couper...`}

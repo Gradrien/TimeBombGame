@@ -1,11 +1,12 @@
 // client/src/components/LoupeWikiModal.tsx
 import Image from 'next/image';
+import {Search} from 'lucide-react';
 import {WikiModal} from '@/components/WikiModal';
 import {WikiModalProps} from "@/types/types";
 
 export function LoupeWikiModal({isOpen, onClose}: WikiModalProps) {
   return (
-	  <WikiModal isOpen={isOpen} onClose={onClose} title="Tutoriel : Mode Loupe">
+	  <WikiModal isOpen={isOpen} onClose={onClose} title="Tutoriel : Mode Loupe" icon={<Search size={18}/>}>
 		{/* SECTION : LA LOUPE */}
 		<div className="flex flex-col sm:flex-row gap-6 items-start">
 		  <div

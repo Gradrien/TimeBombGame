@@ -113,6 +113,14 @@ export const useGameStore = create<GameStoreProps>((set, get) => ({
 
 	socket.on('openRoomsList', (rooms: RoomInfo[]) => set({openRooms: rooms}));
 	socket.on('gameError', (msg: string) => set({error: msg}));
+	socket.on('kicked', () => {
+	  set({
+		gameState: null,
+		isScannerActive: false,
+		isReviewingCards: false,
+		error: "Vous avez été expulsé du lobby par l'hôte.",
+	  });
+	});
 	socket.on('loupeResult', (result) => {
 	  set({loupeAnimation: result, isScannerActive: false});
 	  setTimeout(() => set({loupeAnimation: null}), 3000);
@@ -179,6 +187,11 @@ export const useGameStore = create<GameStoreProps>((set, get) => ({
 	const {socket} = get();
 	if (socket) socket.emit('leaveRoom', roomId);
 	set({gameState: null, isScannerActive: false, isReviewingCards: false});
+  },
+
+  kickPlayer: (roomId, targetPlayerId) => {
+	const {socket} = get();
+	if (socket) socket.emit('kickPlayer', roomId, targetPlayerId);
   },
 
   confirmRole: (roomId) => {

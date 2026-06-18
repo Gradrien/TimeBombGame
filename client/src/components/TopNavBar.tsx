@@ -12,7 +12,7 @@ export function TopNavBar({
   const isViewingOpponent = viewedPlayerId !== null && viewedPlayerId !== me.id;
 
   const playerButtonBase = `
-      min-w-0 rounded-md border font-serif tracking-widest
+      min-w-0 rounded-lg border font-serif uppercase tracking-widest font-bold
       transition-all shadow-sm
       flex items-center justify-center gap-2
       px-3 py-2 text-xs
@@ -21,22 +21,24 @@ export function TopNavBar({
     `;
 
   const activeClasses =
-	  'bg-zinc-100 border-zinc-100 text-black shadow-[0_0_10px_rgba(255,255,255,0.2)]';
+	  'bg-gradient-to-b from-[#c9a56d] to-[#b08a57] border-[#f3e7d3] text-[#1a1510] shadow-[0_0_12px_rgba(201,165,109,0.45)]';
 
   const inactiveClasses =
-	  'bg-black/40 border-zinc-700 text-zinc-300 hover:border-zinc-500 hover:text-zinc-100';
+	  'bg-black/40 border-[#8a6842]/60 text-[#c9a56d] hover:border-[#c9a56d] hover:text-[#f3e7d3] hover:bg-black/55';
 
   return (
 	  <div
 		  className="
-        shrink-0 border-b border-zinc-700 bg-zinc-900/80 shadow-lg
+        relative shrink-0 border-b border-[#c9a56d]/25 bg-[#1a1510]/70 backdrop-blur-md shadow-lg
         px-3 py-2 w-full
         landscape:px-4
       "
 	  >
+		<div className="pointer-events-none absolute inset-0 opacity-[0.06]"
+			 style={{backgroundImage: "repeating-linear-gradient(45deg, rgba(255,255,255,0.06) 0px, rgba(255,255,255,0.06) 2px, transparent 2px, transparent 6px)"}}/>
 		<div
 			className="
-          flex flex-wrap items-center gap-2 w-full
+          relative z-10 flex flex-wrap items-center gap-2 w-full
           max-h-34 overflow-y-auto overflow-x-hidden no-scrollbar
           landscape:max-h-none landscape:flex-nowrap landscape:overflow-x-auto landscape:overflow-y-hidden landscape:gap-3
         "
@@ -67,7 +69,7 @@ export function TopNavBar({
 
 		  <div
 			  className="
-            hidden h-6 w-px shrink-0 rounded-full bg-zinc-600
+            hidden h-6 w-px shrink-0 rounded-full bg-[#c9a56d]/40
             landscape:block
           "
 		  />
@@ -83,7 +85,7 @@ export function TopNavBar({
               landscape:flex-none
               ${
 					  viewedPlayerId === opp.id
-						  ? 'bg-zinc-300 border-zinc-300 text-black shadow-[0_0_10px_rgba(255,255,255,0.2)]'
+						  ? activeClasses
 						  : inactiveClasses
 				  }
             `}
