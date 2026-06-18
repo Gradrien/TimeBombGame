@@ -10,11 +10,18 @@ import { EndView } from '@/components/EndView';
 import {SettingsMenu} from "@/components/SettingsMenu";
 
 export default function Home() {
-  const { initSocket, gameState, isAnimatingCut, playerName, startGame } = useGameStore();
+  const { initSocket, gameState, isAnimatingCut, playerName, playerId, startGame } = useGameStore();
 
   useEffect(() => {
     initSocket();
   }, [initSocket]);
+
+  // "Rejouer" est individuel : dès qu'un joueur a cliqué, il rejoint le lobby
+  // (et y attend les autres) pendant que la partie reste FINISHED pour ceux qui
+  // sont toujours sur l'écran de fin.
+  const iReturnedToLobby =
+      gameState?.status === 'FINISHED' && (gameState.restartReady ?? []).includes(playerId);
+  const showLobby = gameState?.status === 'LOBBY' || iReturnedToLobby;
 
   return (
       <>
@@ -24,7 +31,7 @@ export default function Home() {
             <HomeView />
         )}
 
-        {gameState?.status === 'LOBBY' && (
+        {gameState && showLobby && (
             <LobbyView
                 gameState={gameState}
                 playerName={playerName}
@@ -32,7 +39,7 @@ export default function Home() {
             />
         )}
 
-        {(gameState?.status === 'PLAYING' || gameState?.status === 'FINISHED') && (
+        {(gameState?.status === 'PLAYING' || gameState?.status === 'FINISHED') && !showLobby && (
             <>
               {isAnimatingCut ? (
                   <GameBoard />

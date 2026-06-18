@@ -6,7 +6,7 @@ import {HelpCircle, Dices} from 'lucide-react';
 
 export function ChaosWikiModal({isOpen, onClose}: WikiModalProps) {
   return (
-	  <WikiModal isOpen={isOpen} onClose={onClose} title="Tutoriel : Mode Chaos">
+	  <WikiModal isOpen={isOpen} onClose={onClose} title="Tutoriel : Mode Chaos" icon={<Dices size={18}/>}>
 		{/* SECTION : LE PRINCIPE */}
 		<div className="flex flex-col sm:flex-row gap-6 items-start">
 		  <div
@@ -51,13 +51,13 @@ export function ChaosWikiModal({isOpen, onClose}: WikiModalProps) {
 			<div className="bg-black/40 border border-[#8a6842]/30 rounded-xl p-4 mt-2">
 			  <h4 className="text-xs uppercase text-[#8a6842] font-bold mb-3 tracking-widest">Compteur de rôles</h4>
 			  <div className="flex items-center gap-3">
-				<div className="flex items-center gap-2 rounded border border-blue-500/40 bg-blue-900/40 px-3 py-1.5 shadow-inner">
+				<div className="flex items-center gap-2 rounded-lg border border-[#60a5fa]/40 bg-[#1d4463]/40 px-3 py-1.5 shadow-inner">
 				  <Image src="/assets/roles/role-blue-1.png" alt="Sherlock" width={22} height={30} className="object-contain"/>
-				  <span className="text-lg font-black text-blue-400">?</span>
+				  <span className="text-lg font-black text-[#60a5fa]">?</span>
 				</div>
-				<div className="flex items-center gap-2 rounded border border-red-500/40 bg-red-900/40 px-3 py-1.5 shadow-inner">
+				<div className="flex items-center gap-2 rounded-lg border border-[#ef4444]/40 bg-[#7f1d1d]/40 px-3 py-1.5 shadow-inner">
 				  <Image src="/assets/roles/role-red-1.png" alt="Moriarty" width={22} height={30} className="object-contain"/>
-				  <span className="text-lg font-black text-red-400">?</span>
+				  <span className="text-lg font-black text-[#ef4444]">?</span>
 				</div>
 			  </div>
 			</div>

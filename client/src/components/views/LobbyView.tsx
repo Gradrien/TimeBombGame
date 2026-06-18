@@ -2,19 +2,28 @@ import {useState} from 'react';
 import {useGameStore} from '@/store/useGameStore';
 import SteampunkButton from "@/components/Button";
 import type {LobbyViewProps} from "@/types/views";
-import {Info, Timer, Dices, Settings2, ChevronDown} from 'lucide-react';
+import {Info, Timer, Dices, Settings2, ChevronDown, UserX} from 'lucide-react';
 import {LoupeWikiModal} from '@/components/LoupeWikiModal';
 import {ChaosWikiModal} from '@/components/ChaosWikiModal';
 import {MAX_PLAYERS} from '@timebomb/shared';
 
 export function LobbyView({gameState, playerName, onStart}: LobbyViewProps) {
-  const {toggleLoupeMode, toggleTimerMode, toggleChaosMode, leaveRoom} = useGameStore();
+  const {toggleLoupeMode, toggleTimerMode, toggleChaosMode, leaveRoom, kickPlayer} = useGameStore();
   const [isWikiOpen, setIsWikiOpen] = useState(false);
   const [isChaosWikiOpen, setIsChaosWikiOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
-  const isHost = gameState.players.find((p) => p.name === playerName)?.isHost;
-  const canStart = gameState.players.length >= 4 && gameState.players.length <= MAX_PLAYERS;
+  const me = gameState.players.find((p) => p.name === playerName);
+  const isHost = me?.isHost;
+  // Tant que la partie précédente est FINISHED, certains joueurs n'ont pas encore
+  // cliqué "Rejouer" : on les affiche dans le lobby avec « (fin de partie) » et on
+  // bloque le lancement jusqu'à leur retour.
+  const restartReady = gameState.restartReady ?? [];
+  const isStillInGame = (playerId: string) =>
+      gameState.status === 'FINISHED' && !restartReady.includes(playerId);
+  const waitingForPlayers = gameState.status === 'FINISHED';
+  const canStart =
+      !waitingForPlayers && gameState.players.length >= 4 && gameState.players.length <= MAX_PLAYERS;
   const canUseLoupe = gameState.players.length >= 5;
 
   const activeModesCount =
@@ -109,7 +118,7 @@ export function LobbyView({gameState, playerName, onStart}: LobbyViewProps) {
 				  )}
 				</div>
 				{!canUseLoupe && isHost && (
-					<p className="text-sm text-zinc-100 font-serif italic tracking-wide">5 joueurs minimum requis</p>
+					<p className="text-sm text-[#c9a56d] font-serif italic tracking-wide">5 joueurs minimum requis</p>
 				)}
 			  </div>
 
@@ -151,7 +160,7 @@ export function LobbyView({gameState, playerName, onStart}: LobbyViewProps) {
 				{/* Sélection du temps (Visible si activé) */}
 				{gameState.isTimerModeEnabled && (
 					<div className="flex items-center justify-between mt-1 animate-in fade-in slide-in-from-top-2">
-					  <span className="text-sm font-serif italic text-zinc-100">Temps par tour :</span>
+					  <span className="text-sm font-serif italic text-[#c9a56d]">Temps par tour :</span>
 					  {isHost ? (
 						  <select
 							  value={gameState.timerDuration || 15}
@@ -211,7 +220,7 @@ export function LobbyView({gameState, playerName, onStart}: LobbyViewProps) {
 				  )}
 				</div>
 				{gameState.isChaosModeEnabled && isHost && (
-					<p className="text-sm text-zinc-100 font-serif italic tracking-wide">Distribution des rôles
+					<p className="text-sm text-[#c9a56d] font-serif italic tracking-wide">Distribution des rôles
 					  aléatoire et cachée</p>
 				)}
 			  </div>
@@ -228,20 +237,35 @@ export function LobbyView({gameState, playerName, onStart}: LobbyViewProps) {
 				  <div className="absolute inset-0 opacity-10 pointer-events-none group-hover:opacity-20"
 					   style={{backgroundImage: "repeating-linear-gradient(45deg, rgba(255,255,255,0.05) 0px, rgba(255,255,255,0.05) 2px, transparent 2px, transparent 6px)"}}/>
 				  <span
-					  className={`font-serif tracking-wide font-bold drop-shadow-sm flex items-center relative z-10 ${p.connected === false ? 'text-[#8a6842]' : 'text-[#f3e7d3]'}`}>
+					  className={`font-serif tracking-wide font-bold drop-shadow-sm flex items-center relative z-10 ${(p.connected === false || isStillInGame(p.id)) ? 'text-[#8a6842]' : 'text-[#f3e7d3]'}`}>
               {p.name}
 					{p.name === playerName &&
                         <span className="text-[#c9a56d] text-sm ml-2 italic tracking-wide no-underline">(Toi)</span>}
 					{p.connected === false &&
                         <span className="text-[#c9a56d] text-xs ml-2 italic tracking-wide">(Déconnecté…)</span>}
+						{p.connected !== false && isStillInGame(p.id) &&
+                        <span className="text-[#c9a56d] text-xs ml-2 italic tracking-wide">(Fin de partie)</span>}
             </span>
 
-				  {p.isHost && (
-					  <span
-						  className="text-xs bg-black/40 border border-[#c9a56d]/50 px-3 py-1.5 rounded-lg text-[#c9a56d] font-bold uppercase tracking-wide shadow-inner relative z-10">
-                Hôte
-              </span>
-				  )}
+				  <div className="flex items-center gap-2 relative z-10">
+					{p.isHost && (
+						<span
+							className="text-xs bg-black/40 border border-[#c9a56d]/50 px-3 py-1.5 rounded-lg text-[#c9a56d] font-bold uppercase tracking-wide shadow-inner">
+                  Hôte
+                </span>
+					)}
+					{/* L'hôte peut expulser n'importe quel autre joueur du lobby */}
+					{isHost && p.id !== me?.id && (
+						<button
+							onClick={() => kickPlayer(gameState.roomId, p.id)}
+							title={`Expulser ${p.name}`}
+							aria-label={`Expulser ${p.name}`}
+							className="text-[#8a6842] hover:text-[#b54848] hover:drop-shadow-[0_0_8px_rgba(181,72,72,0.6)] transition-all cursor-pointer p-1"
+						>
+						  <UserX size={18}/>
+						</button>
+					)}
+				  </div>
 				</li>
 			))}
 		  </ul>
@@ -251,7 +275,11 @@ export function LobbyView({gameState, playerName, onStart}: LobbyViewProps) {
 		<div className="flex flex-row gap-4 w-full justify-center z-10 my-8">
 		  {isHost && (
 			  <SteampunkButton variant="sherlock" size="lg" onClick={onStart} disabled={!canStart}>
-				{canStart ? 'Lancer la partie' : `4 à ${MAX_PLAYERS} joueurs requis`}
+				{canStart
+					? 'Lancer la partie'
+					: waitingForPlayers
+						? 'En attente des joueurs…'
+						: `4 à ${MAX_PLAYERS} joueurs requis`}
 			  </SteampunkButton>
 		  )}
 		  <SteampunkButton variant="moriarty" size="lg" onClick={() => leaveRoom(gameState.roomId)}>

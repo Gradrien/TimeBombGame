@@ -95,6 +95,7 @@ export interface GameStoreProps {
   cutCard: (roomId: string, targetPlayerId: string, cardId: string) => void;
 
   leaveRoom: (roomId: string) => void;
+  kickPlayer: (roomId: string, targetPlayerId: string) => void;
   isReviewingCards: boolean;
   setReviewingCards: (val: boolean) => void;
 

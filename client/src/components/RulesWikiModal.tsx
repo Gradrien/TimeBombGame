@@ -1,10 +1,12 @@
+/* eslint-disable react/no-unescaped-entities */
 import Image from 'next/image';
+import {BookOpen} from 'lucide-react';
 import {WikiModal} from '@/components/WikiModal';
 import {WikiModalProps} from "@/types/types";
 
 export function RulesWikiModal({ isOpen, onClose }: WikiModalProps) {
   return (
-	  <WikiModal isOpen={isOpen} onClose={onClose} title="Comment Jouer ?">
+	  <WikiModal isOpen={isOpen} onClose={onClose} title="Comment Jouer ?" icon={<BookOpen size={18}/>}>
 
 		{/* SECTION 1 : LES ÉQUIPES */}
 		<div className="flex flex-col sm:flex-row gap-6 items-start">
