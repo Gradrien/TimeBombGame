@@ -2,11 +2,12 @@ import {useState, useEffect} from 'react';
 import {motion} from 'framer-motion';
 import {
   ArrowLeft, Pencil, LogOut, Check, X,
-  Trophy, Gamepad2, Crown, Lock,
+  Lock,
 } from 'lucide-react';
 import {useGameStore} from '@/store/useGameStore';
 import SteampunkButton from "@/components/Button";
 import {getBadgeImage, ASSETS} from '@/utils/assets';
+import {COLORS} from '@/components/ui/tokens';
 import Image from 'next/image';
 
 interface Achievement {
@@ -26,6 +27,8 @@ interface UserProfile {
   gamesWon?: number;
   gamesAsSherlock?: number;
   gamesAsMoriarty?: number;
+  winsSherlock?: number;
+  winsMoriarty?: number;
   formattedAchievements?: Achievement[];
 }
 
@@ -83,55 +86,55 @@ export function ProfileView({onBack}: { onBack: () => void }) {
   const gamesPlayed = userData.gamesPlayed || 0;
   const gamesWon = userData.gamesWon || 0;
   const winRate = gamesPlayed > 0 ? Math.round((gamesWon / gamesPlayed) * 100) : 0;
+
   const sherlockGames = userData.gamesAsSherlock || 0;
-  const totalRoles = sherlockGames + (userData.gamesAsMoriarty || 0);
-  const sherlockRate = totalRoles > 0 ? Math.round((sherlockGames / totalRoles) * 100) : 50;
-  const moriartyRate = totalRoles > 0 ? 100 - sherlockRate : 50;
+  const moriartyGames = userData.gamesAsMoriarty || 0;
+  const totalRoles = sherlockGames + moriartyGames;
+  const sherlockShare = totalRoles > 0 ? Math.round((sherlockGames / totalRoles) * 100) : 50;
+  const moriartyShare = totalRoles > 0 ? 100 - sherlockShare : 50;
+
+  // Taux de victoire par camp
+  const sherlockWins = userData.winsSherlock || 0;
+  const moriartyWins = userData.winsMoriarty || 0;
+  const sherlockWinRate = sherlockGames > 0 ? Math.round((sherlockWins / sherlockGames) * 100) : 0;
+  const moriartyWinRate = moriartyGames > 0 ? Math.round((moriartyWins / moriartyGames) * 100) : 0;
 
   const achievements: Achievement[] = userData.formattedAchievements ?? [];
   const unlockedCount = achievements.filter(a => a.isUnlocked).length;
   const totalCount = achievements.length;
   const completion = totalCount > 0 ? Math.round((unlockedCount / totalCount) * 100) : 0;
 
-
   return (
 	  <div className="w-full text-white">
-		<div className="mx-auto w-full max-w-6xl px-1 py-2 sm:px-4 sm:py-4 flex flex-col gap-5 sm:gap-6">
+		<div className="mx-auto w-full max-w-6xl px-2 py-3 sm:px-4 sm:py-4 flex flex-col gap-4">
 
-		  {/* ----- BARRE DE NAVIGATION ----- */}
+		  {/* ----- RETOUR ----- */}
 		  <button
 			  onClick={onBack}
 			  className="group flex items-center gap-2 self-start text-[#c9a56d] hover:text-[#f3e7d3] transition-colors font-serif uppercase tracking-widest text-xs"
 		  >
 			<span
-				className="flex h-9 w-9 items-center justify-center rounded-full border border-[#c9a56d]/40 bg-black/30 group-hover:border-[#c9a56d] group-hover:bg-black/50 transition-all">
-			  <ArrowLeft size={16}/>
+				className="flex h-8 w-8 items-center justify-center rounded-full border border-[#c9a56d]/40 bg-black/30 group-hover:border-[#c9a56d] group-hover:bg-black/50 transition-all">
+			  <ArrowLeft size={15}/>
 			</span>
 			Retour
 		  </button>
 
-		  {/* ===================== HERO / BANNIÈRE ===================== */}
-		  <motion.section
-			  initial={{opacity: 0, y: 12}}
-			  animate={{opacity: 1, y: 0}}
-			  transition={{duration: 0.4}}
-			  className="relative overflow-hidden rounded-3xl border border-[#c9a56d]/30 bg-[#1a1510]/55 backdrop-blur-md shadow-2xl"
+		  {/* ===================================================================
+		      EN-TÊTE : identité + performance globale + par camp (une seule surface)
+		  =================================================================== */}
+		  <Panel
+			  as="section"
+			  motionProps={{initial: {opacity: 0, y: 12}, animate: {opacity: 1, y: 0}, transition: {duration: 0.4}}}
 		  >
-			{/* halo coloré selon le rang */}
+			{/* Ligne identité + performance globale (alignement inchangé) */}
 			<div
-				className="pointer-events-none absolute -top-24 -left-16 h-64 w-64 rounded-full blur-3xl opacity-25"
-			/>
-			<div className="pointer-events-none absolute inset-0 opacity-10"
-				 style={{backgroundImage: "repeating-linear-gradient(45deg, rgba(255,255,255,0.05) 0px, rgba(255,255,255,0.05) 2px, transparent 2px, transparent 6px)"}}/>
+				className="flex flex-col items-center gap-6 text-center md:flex-row md:items-center md:justify-between md:gap-8 md:text-left">
 
-			<div
-				className="relative z-10 flex flex-col items-center gap-5 p-6 sm:flex-row sm:items-center sm:gap-7 sm:p-8">
-
-
-			  {/* NOM + RANG + ACTIONS */}
-			  <div className="flex-1 w-full flex flex-col items-center sm:items-start gap-3 text-center sm:text-left">
+			  {/* Identité */}
+			  <div className="flex min-w-0 flex-1 flex-col items-center gap-3 md:items-start">
 				{isEditingName ? (
-					<div className="w-full max-w-sm flex flex-col gap-3">
+					<div className="flex w-full max-w-sm flex-col gap-3">
 					  <input
 						  type="text"
 						  value={newName}
@@ -139,9 +142,9 @@ export function ProfileView({onBack}: { onBack: () => void }) {
 						  onChange={(e) => setNewName(e.target.value)}
 						  onKeyDown={(e) => e.key === 'Enter' && handleUpdateName()}
 						  disabled={isSaving}
-						  className="w-full rounded-xl border border-[#8a6842]/60 bg-black/50 px-4 py-3 text-center sm:text-left font-bold tracking-wide text-white focus:border-[#c9a56d] focus:outline-none transition-all"
+						  className="w-full rounded-xl border border-[#8a6842]/60 bg-black/50 px-4 py-3 text-center font-bold tracking-wide text-white transition-all focus:border-[#c9a56d] focus:outline-none md:text-left"
 					  />
-					  <div className="flex gap-3 justify-center sm:justify-start">
+					  <div className="flex justify-center gap-3 md:justify-start">
 						<SteampunkButton variant="sherlock" size="sm" icon={<Check/>} onClick={handleUpdateName}>
 						  {isSaving ? '...' : 'Valider'}
 						</SteampunkButton>
@@ -153,103 +156,109 @@ export function ProfileView({onBack}: { onBack: () => void }) {
 					</div>
 				) : (
 					<>
-					  <h1 className="font-serif text-3xl sm:text-4xl font-bold tracking-wide break-words leading-tight drop-shadow-md max-w-full">
+					  <p className="text-[10px] font-bold uppercase tracking-[0.25em] text-[#c9a56d]/70">Dossier
+						d&apos;enquêteur</p>
+					  <h1 className="max-w-full break-words font-serif text-3xl font-bold leading-tight tracking-wide drop-shadow-md sm:text-4xl">
 						{playerName}
 					  </h1>
-					  <div className="mt-1 flex gap-2.5 justify-center sm:justify-start">
+					  <div className="flex justify-center gap-2.5 md:justify-start">
 						<IconAction icon={<Pencil size={15}/>} label="Renommer"
 									onClick={() => {
 									  setIsEditingName(true);
 									  setNewName(playerName);
 									}}/>
-						<IconAction icon={<LogOut size={15}/>} label="Déconnexion" danger
-									onClick={logout}/>
+						<IconAction icon={<LogOut size={15}/>} label="Déconnexion" danger onClick={logout}/>
 					  </div>
 					</>
 				)}
 			  </div>
-			</div>
-		  </motion.section>
 
-		  {/* ===================== CORPS : STATS + HAUTS FAITS ===================== */}
-		  <div className="flex flex-col lg:flex-row gap-5 sm:gap-6 items-stretch">
-
-			{/* --------- COLONNE STATS --------- */}
-			<motion.section
-				initial={{opacity: 0, y: 12}}
-				animate={{opacity: 1, y: 0}}
-				transition={{duration: 0.4, delay: 0.08}}
-				className="w-full lg:w-95 shrink-0 flex flex-col gap-5"
-			>
-			  {/* Taux de victoire — focal radial */}
-			  <Panel>
-				<SectionTitle>Performance</SectionTitle>
-				<div className="flex items-center gap-5">
-				  <Radial value={winRate} color="#c9a56d"/>
-				  <div className="flex-1 grid grid-cols-1 gap-3">
-					<MiniStat icon={<Gamepad2 size={16}/>} label="Parties jouées" value={gamesPlayed} accent="#f3e7d3"/>
-					<MiniStat icon={<Trophy size={16}/>} label="Victoires" value={gamesWon} accent="#ffd479"/>
+			  {/* Performance globale */}
+			  {!isEditingName && (
+				  <div className="flex items-center gap-5 sm:gap-6">
+					<Radial value={winRate} color={COLORS.gold}/>
+					<div className="flex items-stretch gap-4 sm:gap-6">
+					  <StatFigure value={gamesPlayed} label="Parties" accent={COLORS.cream}/>
+					  <div className="w-px self-stretch bg-[#c9a56d]/15"/>
+					  <StatFigure value={gamesWon} label="Victoires" accent={COLORS.goldBright}/>
+					</div>
 				  </div>
-				</div>
-			  </Panel>
+			  )}
+			</div>
 
-			  {/* Allégeance Sherlock / Moriarty */}
-			  <Panel>
-				<SectionTitle>Allégeance</SectionTitle>
-				<div className="flex justify-between text-sm font-bold mb-2">
+			<Divider/>
+
+			{/* Par camp — pleine largeur, deux colonnes sur écran large */}
+			<div className="grid gap-x-10 gap-y-6 md:grid-cols-2">
+
+			  {/* Répartition des rôles joués */}
+			  <div className="flex flex-col">
+				<p className="mb-3 text-[11px] font-bold uppercase tracking-wide text-white/40">Répartition des rôles</p>
+				<div className="mb-1.5 flex items-center justify-between text-xs font-bold">
 				  <span className="text-[#60a5fa]">Sherlock</span>
 				  <span className="text-[#ef4444]">Moriarty</span>
 				</div>
-				<div
-					className="relative flex h-7 w-full overflow-hidden rounded-full border border-black/40 shadow-inner">
+				<div className="relative flex h-6 w-full overflow-hidden rounded-full border border-black/40 shadow-inner">
 				  <motion.div
 					  initial={{width: 0}}
-					  animate={{width: `${sherlockRate}%`}}
+					  animate={{width: `${sherlockShare}%`}}
 					  transition={{duration: 0.8, ease: "easeOut"}}
 					  className="h-full bg-gradient-to-r from-[#1d4463] to-[#3b82f6]"
 				  />
 				  <div className="h-full flex-1 bg-gradient-to-r from-[#7f1d1d] to-[#ef4444]"/>
 				</div>
-				<div className="mt-2 flex justify-between text-xs font-bold tracking-wide">
-				  <span className="text-[#60a5fa]">{sherlockRate}%</span>
-				  <span className="text-[#ef4444]">{moriartyRate}%</span>
+				<div className="mt-1.5 flex justify-between text-[11px] font-bold text-white/45">
+				  <span>{sherlockShare}% · {sherlockGames} parties</span>
+				  <span>{moriartyGames} parties · {moriartyShare}%</span>
 				</div>
-			  </Panel>
-			</motion.section>
+			  </div>
 
-			{/* --------- COLONNE HAUTS FAITS --------- */}
-			<motion.section
-				initial={{opacity: 0, y: 12}}
-				animate={{opacity: 1, y: 0}}
-				transition={{duration: 0.4, delay: 0.16}}
-				className="flex-1 min-w-0"
-			>
-			  <Panel className="h-full">
-				<div className="flex items-center justify-between gap-3 mb-1">
-				  <SectionTitle noMargin>Hauts faits</SectionTitle>
-				  <span
-					  className="rounded-full border border-[#c9a56d]/40 bg-black/40 px-3 py-1 text-xs font-bold text-[#c9a56d] whitespace-nowrap">
-					{unlockedCount} / {totalCount}
-				  </span>
+			  {/* Taux de victoire par camp */}
+			  <div className="flex flex-col">
+				<p className="mb-3 text-[11px] font-bold uppercase tracking-wide text-white/40">Taux de victoire par
+				  camp</p>
+				<div className="flex flex-1 flex-col justify-center gap-4">
+				  <CampRow label="Sherlock" rate={sherlockWinRate} wins={sherlockWins} games={sherlockGames}
+						   color={COLORS.sherlock}/>
+				  <CampRow label="Moriarty" rate={moriartyWinRate} wins={moriartyWins} games={moriartyGames}
+						   color={COLORS.moriarty}/>
 				</div>
-				{/* progression globale */}
-				<div className="mb-6 h-1.5 w-full overflow-hidden rounded-full bg-black/50 border border-[#8a6842]/30">
-				  <motion.div
-					  initial={{width: 0}}
-					  animate={{width: `${completion}%`}}
-					  transition={{duration: 1, ease: "easeOut"}}
-					  className="h-full bg-gradient-to-r from-[#8a6842] to-[#ffd479]"
-				  />
-				</div>
+			  </div>
+			</div>
+		  </Panel>
 
-				<div className="grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-4">
-				  {achievements.map((ach) => (
-					  <AchievementCard key={ach.id} ach={ach}/>
-				  ))}
-				</div>
-			  </Panel>
-			</motion.section>
-		  </div>
+		  {/* ===================================================================
+		      HAUTS FAITS
+		  =================================================================== */}
+		  <Panel
+			  as="section"
+			  motionProps={{
+				initial: {opacity: 0, y: 12}, animate: {opacity: 1, y: 0},
+				transition: {duration: 0.4, delay: 0.12},
+			  }}
+		  >
+			<div className="mb-2 flex items-center justify-between gap-3">
+			  <SectionTitle noMargin>Hauts faits</SectionTitle>
+			  <span
+				  className="whitespace-nowrap rounded-full border border-[#c9a56d]/40 bg-black/40 px-3 py-1 text-xs font-bold text-[#c9a56d]">
+				{unlockedCount} / {totalCount}
+			  </span>
+			</div>
+			<div className="mb-5 h-1.5 w-full overflow-hidden rounded-full border border-[#8a6842]/30 bg-black/50">
+			  <motion.div
+				  initial={{width: 0}}
+				  animate={{width: `${completion}%`}}
+				  transition={{duration: 1, ease: "easeOut"}}
+				  className="h-full bg-gradient-to-r from-[#8a6842] to-[#ffd479]"
+			  />
+			</div>
+
+			<div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5">
+			  {achievements.map((ach) => (
+				  <AchievementCard key={ach.id} ach={ach}/>
+			  ))}
+			</div>
+		  </Panel>
 		</div>
 	  </div>
   );
@@ -257,18 +266,30 @@ export function ProfileView({onBack}: { onBack: () => void }) {
 
 /* ================================================================== */
 /*  SOUS-COMPOSANTS                                                     */
-
 /* ================================================================== */
 
-function Panel({children, className = ""}: { children: React.ReactNode; className?: string }) {
+/* Surface de base — une seule couche visuelle, jamais imbriquée */
+function Panel({children, className = "", as = "div", motionProps}: {
+  children: React.ReactNode;
+  className?: string;
+  as?: "div" | "section";
+  motionProps?: React.ComponentProps<typeof motion.div>;
+}) {
+  const Comp = as === "section" ? motion.section : motion.div;
   return (
-	  <div
-		  className={`relative overflow-hidden rounded-2xl border border-[#c9a56d]/25 bg-[#1a1510]/50 backdrop-blur-md p-5 sm:p-6 shadow-2xl ${className}`}>
-		<div className="pointer-events-none absolute inset-0 opacity-[0.07]"
+	  <Comp
+		  {...motionProps}
+		  className={`relative overflow-hidden rounded-2xl border border-[#c9a56d]/25 bg-[#1a1510]/55 p-5 shadow-2xl backdrop-blur-md sm:p-6 ${className}`}
+	  >
+		<div className="pointer-events-none absolute inset-0 opacity-[0.06]"
 			 style={{backgroundImage: "repeating-linear-gradient(45deg, rgba(255,255,255,0.06) 0px, rgba(255,255,255,0.06) 2px, transparent 2px, transparent 6px)"}}/>
 		<div className="relative z-10">{children}</div>
-	  </div>
+	  </Comp>
   );
+}
+
+function Divider({className = ""}: { className?: string }) {
+  return <div className={`my-4 h-px w-full bg-[#c9a56d]/15 ${className}`}/>;
 }
 
 function SectionTitle({children, noMargin = false}: { children: React.ReactNode; noMargin?: boolean }) {
@@ -292,7 +313,7 @@ function IconAction({icon, label, onClick, danger = false}: {
 		  className={`flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-[11px] font-bold uppercase tracking-wide transition-all active:scale-95
 		  ${danger
 			  ? 'border-[#b77b4a]/50 bg-[#6e1d26]/30 text-[#f7d8b5] hover:bg-[#6e1d26]/60'
-			  : 'border-[#b08a57]/50 bg-black/30 text-[#f3e7d3] hover:bg-black/50 hover:border-[#c9a56d]'}`}
+			  : 'border-[#b08a57]/50 bg-black/30 text-[#f3e7d3] hover:border-[#c9a56d] hover:bg-black/50'}`}
 	  >
 		{icon}
 		<span className="hidden sm:inline">{label}</span>
@@ -300,35 +321,67 @@ function IconAction({icon, label, onClick, danger = false}: {
   );
 }
 
-function MiniStat({icon, label, value, accent}: {
-  icon: React.ReactNode;
-  label: string;
+/* Chiffre simple (pas de bordure) pour l'en-tête */
+function StatFigure({value, label, accent}: {
   value: string | number;
-  accent: string
+  label: string;
+  accent: string;
 }) {
   return (
-	  <div className="flex items-center gap-3 rounded-xl border border-[#8a6842]/30 bg-black/25 px-3 py-2">
-		<span className="flex h-8 w-8 items-center justify-center rounded-lg bg-black/40" style={{color: accent}}>
-		  {icon}
+	  <div className="flex min-w-14 flex-col items-center justify-center gap-1">
+		<span className="text-2xl font-bold leading-none drop-shadow sm:text-3xl" style={{color: accent}}>{value}</span>
+		<span className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-wide text-white/45">
+		  {label}
 		</span>
-		<div className="min-w-0">
-		  <div className="text-xl font-bold leading-none drop-shadow" style={{color: accent}}>{value}</div>
-		  <div className="mt-0.5 text-[10px] uppercase tracking-wide text-white/45 font-bold truncate">{label}</div>
+	  </div>
+  );
+}
+
+/* Ligne de taux de victoire d'un camp (barre pleine largeur, pas de boîte) */
+function CampRow({label, rate, wins, games, color}: {
+  label: string;
+  rate: number;
+  wins: number;
+  games: number;
+  color: string;
+}) {
+  return (
+	  <div className="flex flex-col gap-2">
+		<div className="flex items-center justify-between">
+		  <span className="flex items-center gap-2 text-sm font-bold" style={{color}}>
+			<span className="h-2.5 w-2.5 rounded-full"
+				  style={{backgroundColor: color, boxShadow: `0 0 8px ${color}`}}/>
+			{label}
+		  </span>
+		  <span className="flex items-baseline gap-1.5">
+			<span className="text-xl font-bold leading-none" style={{color}}>{rate}%</span>
+			<span className="text-[10px] font-bold text-white/40">{wins}/{games}</span>
+		  </span>
+		</div>
+		<div className="h-2 w-full overflow-hidden rounded-full border border-black/40 bg-black/40">
+		  <motion.div
+			  initial={{width: 0}}
+			  animate={{width: `${rate}%`}}
+			  transition={{duration: 0.8, ease: "easeOut"}}
+			  className="h-full rounded-full"
+			  style={{backgroundColor: color, boxShadow: `0 0 10px ${color}66`}}
+		  />
 		</div>
 	  </div>
   );
 }
 
-/* Anneau de progression SVG (taux de victoire) */
+/* Anneau de progression SVG (taux de victoire global) */
 function Radial({value, color}: { value: number; color: string }) {
-  const size = 104;
+  const size = 100;
   const stroke = 9;
-  const r = (size - stroke) / 2;
+  const pad = 8; // marge intérieure pour que la lueur ne soit pas rognée par le bord du SVG
+  const r = (size - stroke) / 2 - pad;
   const c = 2 * Math.PI * r;
 
   return (
 	  <div className="relative shrink-0" style={{width: size, height: size}}>
-		<svg width={size} height={size} className="-rotate-90">
+		<svg width={size} height={size} className="-rotate-90 overflow-visible">
 		  <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="rgba(0,0,0,0.45)" strokeWidth={stroke}/>
 		  <motion.circle
 			  cx={size / 2} cy={size / 2} r={r} fill="none"
@@ -354,11 +407,11 @@ function AchievementCard({ach}: { ach: Achievement }) {
 
   return (
 	  <div
-		  className={`group relative flex flex-col items-center rounded-xl border p-3 text-center transition-all duration-300
+		  className={`group relative flex flex-col items-center rounded-xl p-3 text-center transition-all duration-300
 		  ${ach.isUnlocked
-			  ? 'bg-black/30 hover:-translate-y-0.5'
-			  : 'border-white/5 bg-black/20'}`}
-		  style={ach.isUnlocked ? {borderColor: `${t.ring}66`} : undefined}
+			  ? 'border border-transparent bg-black/25 hover:-translate-y-0.5'
+			  : 'bg-black/15'}`}
+		  style={ach.isUnlocked ? {borderColor: `${t.ring}55`} : undefined}
 	  >
 		{/* lueur de rareté pour les débloqués */}
 		{ach.isUnlocked && (
@@ -367,7 +420,7 @@ function AchievementCard({ach}: { ach: Achievement }) {
 				style={{background: `radial-gradient(circle at 50% 0%, ${t.glow}, transparent 70%)`}}/>
 		)}
 
-		<div className="relative z-10 mb-2 flex h-16 w-16 sm:h-20 sm:w-20 items-center justify-center">
+		<div className="relative z-10 mb-2 flex h-16 w-16 items-center justify-center sm:h-20 sm:w-20">
 		  <Image
 			  fill
 			  src={getBadgeImage(ach.id)}
@@ -376,9 +429,7 @@ function AchievementCard({ach}: { ach: Achievement }) {
 				(e.currentTarget as HTMLImageElement).src = ASSETS.BADGE_PLACEHOLDER;
 			  }}
 			  className={`object-contain transition-all duration-500
-			  ${colored
-				  ? 'group-hover:scale-110'
-				  : 'grayscale opacity-40 brightness-50'}`}
+			  ${colored ? 'group-hover:scale-110' : 'grayscale opacity-40 brightness-50'}`}
 			  style={ach.isUnlocked ? {filter: `drop-shadow(0 0 10px ${t.glow})`} : undefined}
 		  />
 		  {!ach.isUnlocked && (
@@ -389,10 +440,10 @@ function AchievementCard({ach}: { ach: Achievement }) {
 		  )}
 		</div>
 
-		<h3 className={`relative z-10 text-[11px] sm:text-xs font-bold uppercase leading-tight tracking-wide mb-1 ${ach.isUnlocked ? 'text-[#f3e7d3]' : 'text-white/40'}`}>
+		<h3 className={`relative z-10 mb-1 text-[11px] font-bold uppercase leading-tight tracking-wide sm:text-xs ${ach.isUnlocked ? 'text-[#f3e7d3]' : 'text-white/40'}`}>
 		  {ach.name}
 		</h3>
-		<p className="relative z-10 hidden sm:block text-[10px] italic leading-snug text-white/40 mb-2 line-clamp-2">
+		<p className="relative z-10 mb-2 text-[10px] italic leading-snug text-white/45 line-clamp-2">
 		  {ach.description}
 		</p>
 
