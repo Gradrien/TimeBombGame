@@ -2,6 +2,7 @@ import Image from 'next/image';
 import {useGameStore} from '@/store/useGameStore';
 import {getRoleCard} from '@/utils/assets';
 import SteampunkButton from "@/components/Button";
+import {getRoleTeam, type Player} from '@timebomb/shared';
 
 export function EndView() {
   const {gameState, socket, playerId, leaveRoom} = useGameStore();
@@ -16,6 +17,23 @@ export function EndView() {
 	if (role === 'MORIARTY') return (index % 3) + 1;
 	return 1;
   };
+
+  // Split players by camp. The Brouilleur plays for Moriarty (see getRoleTeam),
+  // so it correctly lands on the red side and shares Moriarty's win/loss.
+  const winners = gameState.players.filter(p => getRoleTeam(p.role) === gameState.winner);
+  const losers = gameState.players.filter(p => getRoleTeam(p.role) !== gameState.winner);
+
+  const renderPlayer = (p: Player, won: boolean) => (
+	  <div key={p.id} className={`relative flex flex-col items-center justify-center w-fit ${won ? '' : 'opacity-40 saturate-50'}`}>
+		<div className="relative w-16 h-24 sm:w-24 sm:h-36 mb-2">
+		  <Image src={getRoleCard(p.role, getSkinIndex(p.id, p.role))} alt="Role" fill className="object-contain drop-shadow-md"/>
+		</div>
+		<span
+			className={`text-xs sm:text-xs font-bold truncate w-full text-center ${p.id === playerId ? 'text-amber-500' : 'text-zinc-400'}`}>
+		  {p.name} {p.id === playerId && '(Toi)'}
+		</span>
+	  </div>
+  );
 
   return (
 	  <main
@@ -32,24 +50,31 @@ export function EndView() {
 			</h3>
 		  </div>
 
-		  {/* GRILLE DES JOUEURS */}
-		  <div className="flex-1 overflow-y-auto px-2 no-scrollbar">
-			<div className="grid grid-cols-2 sm:grid-cols-5 gap-3 py-4 justify-items-center">
-			  {gameState.players.map(p => (
-				  <div key={p.id}
-					   className={`relative flex flex-col items-center justify-center w-fit`}>
+		  {/* GRILLES DES JOUEURS : VAINQUEURS puis VAINCUS */}
+		  <div className="flex-1 overflow-y-auto px-2 py-4 no-scrollbar flex flex-col gap-4">
 
-					<div key={p.id}className="relative w-16 h-24 sm:w-24 sm:h-36 mb-2">
-					  <Image src={getRoleCard(p.role, getSkinIndex(p.id, p.role))} alt="Role" fill className="object-contain drop-shadow-md"/>
-					</div>
+			{/* --- VAINQUEURS --- */}
+			<section>
+			  <h4 className={`text-center text-xs sm:text-sm font-serif uppercase tracking-[0.2em] mb-2 ${isSherlock ? 'text-blue-400' : 'text-red-400'}`}>
+				Vainqueurs
+			  </h4>
+			  <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 justify-items-center">
+				{winners.map(p => renderPlayer(p, true))}
+			  </div>
+			</section>
 
-					<span
-						className={`text-xs sm:text-xs font-bold truncate w-full text-center ${p.id === playerId ? 'text-amber-500' : 'text-zinc-400'}`}>
-                  {p.name} {p.id === playerId && '(Toi)'}
-                 </span>
+			{/* --- VAINCUS --- */}
+			{losers.length > 0 && (
+				<section>
+				  <div className="w-full h-px bg-gradient-to-r from-transparent via-amber-900/40 to-transparent mb-3"/>
+				  <h4 className="text-center text-xs sm:text-sm font-serif uppercase tracking-[0.2em] mb-2 text-zinc-500">
+					Vaincus
+				  </h4>
+				  <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 justify-items-center">
+					{losers.map(p => renderPlayer(p, false))}
 				  </div>
-			  ))}
-			</div>
+				</section>
+			)}
 		  </div>
 		</div>
 
