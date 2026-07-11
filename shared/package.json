@@ -1,14 +1,16 @@
 {
   "name": "@timebomb/shared",
   "version": "1.0.0",
-  "description": "",
+  "description": "Types, constantes et logique de jeu partagés entre le client et le serveur",
   "main": "index.ts",
+  "types": "index.ts",
   "scripts": {
-    "dev": "tsx watch src/index.ts",
-    "build": "echo 'Pas de build complexe nécessaire, on utilise tsx'",
-    "start": "NODE_ENV=production tsx src/index.ts"
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
   },
-  "keywords": [],
-  "author": "",
-  "type": "module"
+  "type": "module",
+  "devDependencies": {
+    "typescript": "^5.9.3",
+    "vitest": "^3.2.4"
+  }
 }

@@ -1,13 +1,15 @@
 import express from 'express';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
+import type { ClientToServerEvents, ServerToClientEvents, SocketData } from '@timebomb/shared';
 import { setupSocketHandlers } from './roomManager';
+import type { TypedServer } from './socketTypes';
 import 'dotenv/config';
 
 const app = express();
 const httpServer = createServer(app);
 
-const io = new Server(httpServer, {
+const io: TypedServer = new Server<ClientToServerEvents, ServerToClientEvents, Record<string, never>, SocketData>(httpServer, {
   cors: {
     origin: process.env.CLIENT_URL || '*',
   },
@@ -34,7 +36,6 @@ io.on('connection', (socket) => {
   setupSocketHandlers(io, socket);
 });
 
-// Lightweight health endpoint (useful for container/orchestrator probes).
 app.get('/health', (_req, res) => {
   res.json({ status: 'ok' });
 });

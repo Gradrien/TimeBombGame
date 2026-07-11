@@ -1,211 +1,182 @@
 import {create} from 'zustand';
 import {io} from 'socket.io-client';
-import type {GameState} from '@timebomb/shared';
-import type {GameStoreProps, RoomInfo} from "@/types/types";
+import type {GameSocket, GameStore} from './types';
+import {clearSession, loadSession, saveSession} from '@/utils/session';
 
 const SOCKET_URL = process.env.NEXT_PUBLIC_SOCKET_URL || 'http://localhost:3001';
 
-const getStorageType = () => {
-  if (typeof window === 'undefined') return null;
-  return process.env.NODE_ENV === 'development' ? sessionStorage : localStorage;
-};
+/** Animation display durations, kept in sync with the server-side delays. */
+const CUT_ANIMATION_MS = 2500;
+const LOUPE_ANIMATION_MS = 3000;
 
-const getSavedSession = () => {
-  const storage = getStorageType();
-  if (!storage) return null;
-  const saved = storage.getItem('timebomb_session');
-  return saved ? JSON.parse(saved) : null;
-};
+const savedSession = loadSession();
 
+/** Guard: the `visibilitychange` listener must only be installed once. */
+let visibilityHandlerInstalled = false;
 
-export const useGameStore = create<GameStoreProps>((set, get) => ({
-  socket: null,
-  gameState: null,
+export const useGameStore = create<GameStore>((set, get) => {
+  /** Runs `fn` if the socket is initialized (every action depends on it). */
+  const withSocket = (fn: (socket: GameSocket) => void) => {
+	const {socket} = get();
+	if (socket) fn(socket);
+  };
 
-  playerName: getSavedSession()?.username || '',
-  playerId: getSavedSession()?.id || '',
-  pinCode: getSavedSession()?.pinCode || '',
+  return {
+	socket: null,
+	gameState: null,
 
-  isAnimatingCut: false,
-  openRooms: [],
-  error: null,
-  isReviewingCards: false,
-  setReviewingCards: (val) => set({isReviewingCards: val}),
+	playerName: savedSession?.username || '',
+	playerId: savedSession?.id || '',
+	pinCode: '',
 
-  isReviewingRole: false,
-  setReviewingRole: (val) => set({isReviewingRole: val}),
+	isAnimatingCut: false,
+	openRooms: [],
+	error: null,
+	loupeAnimation: null,
+	isScannerActive: false,
+	isReviewingCards: false,
+	isReviewingRole: false,
 
-  loupeAnimation: null,
-  isScannerActive: false,
-  setScannerActive: (active) => set({isScannerActive: active}),
+	// ------------------------------------------------------------------
+	// Socket & session
+	// ------------------------------------------------------------------
 
-  setPlayerName: (name) => set({playerName: name}),
-  setPinCode: (pin) => set({pinCode: pin}),
-  clearError: () => set({error: null}),
+	initSocket: () => {
+	  if (get().socket) return;
+	  const socket: GameSocket = io(SOCKET_URL);
 
-  get isAnimating() {
-	const state = get();
-	return state.isAnimatingCut || state.loupeAnimation !== null || state.isReviewingCards || state.isReviewingRole;
-  },
-
-  login: (name, pin) => {
-	return new Promise((resolve) => {
-	  const { socket } = get();
-	  if (!socket) return resolve(false);
-	  socket.emit('login', name, pin, (response: any) => {
-		if (response.success) {
-		  const user = response.user;
-		  // Le serveur ne renvoie jamais le secret (hash). On conserve localement
-		  // le PIN saisi par le joueur, uniquement pour préremplir le formulaire.
-		  set({ playerId: user.id, playerName: user.username, pinCode: pin, error: null });
-		  const storage = getStorageType();
-		  if (storage) {
-			storage.setItem('timebomb_session', JSON.stringify({
-			  id: user.id,
-			  username: user.username,
-			  pinCode: pin
-			}));
+	  socket.on('connect', () => {
+		const session = loadSession();
+		if (!session) return;
+		// Identity is bound to the socket server-side: on every (re)connection we
+		// present the session token, which also automatically reattaches the
+		// player to their ongoing game.
+		socket.emit('authenticate', session.token, (response) => {
+		  if (response.success) {
+			set({playerId: response.user.id, playerName: response.user.username});
+		  } else {
+			// Invalid token or deleted account: force a fresh login.
+			clearSession();
+			set({playerId: '', playerName: '', gameState: null});
 		  }
-		  resolve(true);
-		} else {
-		  set({ error: response.error });
-		  resolve(false);
-		}
+		});
 	  });
-	});
-  },
 
-  logout: () => {
-	const storage = getStorageType();
-	if (storage) {
-	  storage.removeItem('timebomb_session');
-	}
-	set({ playerId: '', playerName: '', pinCode: '', gameState: null });
-  },
-
-  initSocket: () => {
-	if (get().socket) return;
-	const socket = io(SOCKET_URL);
-
-	socket.on('connect', () => {
-	  const { playerId } = get();
-	  if (playerId) socket.emit('checkReconnection', playerId);
-	});
-
-	if (typeof window !== 'undefined' && !(window as any)._hasVisibilityHandler) {
-	  (window as any)._hasVisibilityHandler = true;
-	  document.addEventListener("visibilitychange", () => {
-		const currentSocket = get().socket;
-		if (document.visibilityState === 'visible' && currentSocket?.disconnected) {
-		  currentSocket.connect();
-		}
-	  });
-	}
-
-	socket.on('gameStateUpdated', (newState: GameState) => {
-	  const currentState = get().gameState;
-	  if (currentState && newState.revealedCards && currentState.revealedCards && newState.revealedCards.length > currentState.revealedCards.length) {
-		set({isAnimatingCut: true});
-		setTimeout(() => set({isAnimatingCut: false}), 2500);
+	  if (typeof window !== 'undefined' && !visibilityHandlerInstalled) {
+		visibilityHandlerInstalled = true;
+		document.addEventListener('visibilitychange', () => {
+		  const currentSocket = get().socket;
+		  if (document.visibilityState === 'visible' && currentSocket?.disconnected) {
+			currentSocket.connect();
+		  }
+		});
 	  }
-	  set({gameState: newState, error: null});
-	});
 
-	socket.on('openRoomsList', (rooms: RoomInfo[]) => set({openRooms: rooms}));
-	socket.on('gameError', (msg: string) => set({error: msg}));
-	socket.on('kicked', () => {
-	  set({
-		gameState: null,
-		isScannerActive: false,
-		isReviewingCards: false,
-		error: "Vous avez été expulsé du lobby par l'hôte.",
+	  socket.on('gameStateUpdated', (newState) => {
+		const currentState = get().gameState;
+		if (currentState && newState.revealedCards.length > currentState.revealedCards.length) {
+		  set({isAnimatingCut: true});
+		  setTimeout(() => set({isAnimatingCut: false}), CUT_ANIMATION_MS);
+		}
+		set({gameState: newState, error: null});
 	  });
-	});
-	socket.on('loupeResult', (result) => {
-	  set({loupeAnimation: result, isScannerActive: false});
-	  setTimeout(() => set({loupeAnimation: null}), 3000);
-	});
 
-	socket.on('achievementsUnlocked', (unlockedData) => {
-	  const myId = get().playerId;
-	  const myUnlocks = unlockedData.find((d: any) => d.playerId === myId);
-	  if (myUnlocks) console.log("🏆 NOUVEAUX SUCCÈS : ", myUnlocks.unlockedAchievements);
-	});
+	  socket.on('openRoomsList', (rooms) => set({openRooms: rooms}));
+	  socket.on('gameError', (msg) => set({error: msg}));
 
-	set({socket});
-  },
+	  socket.on('kicked', () => {
+		set({
+		  gameState: null,
+		  isScannerActive: false,
+		  isReviewingCards: false,
+		  error: "Vous avez été expulsé du lobby par l'hôte.",
+		});
+	  });
 
-  createRoom: (name) => {
-	const {socket, playerId, playerName} = get();
-	if (socket) socket.emit('createRoom', name || playerName, playerId);
-  },
+	  socket.on('loupeResult', (result) => {
+		set({loupeAnimation: result, isScannerActive: false});
+		setTimeout(() => set({loupeAnimation: null}), LOUPE_ANIMATION_MS);
+	  });
 
-  joinRoom: (roomId, name) => {
-	const {socket, playerId, playerName} = get();
-	if (socket) socket.emit('joinRoom', roomId, name || playerName, playerId);
-  },
+	  socket.on('achievementsUnlocked', (unlocks) => {
+		const myUnlocks = unlocks.find(u => u.playerId === get().playerId);
+		if (myUnlocks) console.log('🏆 NOUVEAUX SUCCÈS : ', myUnlocks.unlockedAchievements);
+	  });
 
-  fetchOpenRooms: () => {
-	const {socket} = get();
-	if (socket) socket.emit('getOpenRooms');
-  },
+	  set({socket});
+	},
 
-  startGame: (roomId) => {
-	const {socket} = get();
-	if (socket) socket.emit('startGame', roomId);
-  },
+	login: (name, pin) => {
+	  return new Promise((resolve) => {
+		const {socket} = get();
+		if (!socket) return resolve(false);
+		socket.emit('login', name, pin, (response) => {
+		  if (response.success) {
+			// Never persist the PIN: only the signed token.
+			saveSession({id: response.user.id, username: response.user.username, token: response.token});
+			set({playerId: response.user.id, playerName: response.user.username, error: null});
+			resolve(true);
+		  } else {
+			set({error: response.error});
+			resolve(false);
+		  }
+		});
+	  });
+	},
 
-  cutCard: (roomId, targetPlayerId, cardId) => {
-	const {socket} = get();
-	if (socket) socket.emit('cutCard', roomId, targetPlayerId, cardId);
-  },
+	logout: () => {
+	  clearSession();
+	  set({playerId: '', playerName: '', pinCode: '', gameState: null});
+	},
 
-  toggleLoupeMode: (roomId, enabled) => {
-	const {socket} = get();
-	if (socket) socket.emit('toggleLoupeMode', roomId, enabled);
-  },
+	setPlayerName: (name) => set({playerName: name}),
+	setPinCode: (pin) => set({pinCode: pin}),
+	clearError: () => set({error: null}),
 
-  toggleTimerMode: (roomId, enabled, duration) => {
-	const {socket} = get();
-	if (socket) socket.emit('toggleTimerMode', roomId, enabled, duration);
-  },
+	// ------------------------------------------------------------------
+	// Rooms
+	// ------------------------------------------------------------------
 
-  toggleChaosMode: (roomId, enabled) => {
-	const {socket} = get();
-	if (socket) socket.emit('toggleChaosMode', roomId, enabled);
-  },
+	createRoom: () => withSocket(s => s.emit('createRoom')),
+	joinRoom: (roomId) => withSocket(s => s.emit('joinRoom', roomId)),
+	fetchOpenRooms: () => withSocket(s => s.emit('getOpenRooms')),
+	kickPlayer: (roomId, targetPlayerId) => withSocket(s => s.emit('kickPlayer', roomId, targetPlayerId)),
 
-  useLoupe: (roomId, targetPlayerId, cardId) => {
-	const {socket} = get();
-	if (socket) {
-	  socket.emit('useLoupe', roomId, targetPlayerId, cardId);
+	leaveRoom: (roomId) => {
+	  withSocket(s => s.emit('leaveRoom', roomId));
+	  set({gameState: null, isScannerActive: false, isReviewingCards: false});
+	},
+
+	// ------------------------------------------------------------------
+	// Lobby settings
+	// ------------------------------------------------------------------
+
+	toggleLoupeMode: (roomId, enabled) => withSocket(s => s.emit('toggleLoupeMode', roomId, enabled)),
+	toggleTimerMode: (roomId, enabled, duration) => withSocket(s => s.emit('toggleTimerMode', roomId, enabled, duration)),
+	toggleChaosMode: (roomId, enabled) => withSocket(s => s.emit('toggleChaosMode', roomId, enabled)),
+
+	// ------------------------------------------------------------------
+	// Game flow
+	// ------------------------------------------------------------------
+
+	startGame: (roomId) => withSocket(s => s.emit('startGame', roomId)),
+	confirmRole: (roomId) => withSocket(s => s.emit('confirmRole', roomId)),
+	confirmCards: (roomId) => withSocket(s => s.emit('confirmCards', roomId)),
+	cutCard: (roomId, targetPlayerId, cardId) => withSocket(s => s.emit('cutCard', roomId, targetPlayerId, cardId)),
+	voteSurrender: (roomId) => withSocket(s => s.emit('voteSurrender', roomId)),
+	restartGame: (roomId) => withSocket(s => s.emit('restartGame', roomId)),
+
+	activateLoupe: (roomId, targetPlayerId, cardId) => {
+	  withSocket(s => s.emit('useLoupe', roomId, targetPlayerId, cardId));
 	  set({isScannerActive: false});
-	}
-  },
+	},
 
-  leaveRoom: (roomId) => {
-	const {socket} = get();
-	if (socket) socket.emit('leaveRoom', roomId);
-	set({gameState: null, isScannerActive: false, isReviewingCards: false});
-  },
+	// ------------------------------------------------------------------
+	// Local UI state
+	// ------------------------------------------------------------------
 
-  kickPlayer: (roomId, targetPlayerId) => {
-	const {socket} = get();
-	if (socket) socket.emit('kickPlayer', roomId, targetPlayerId);
-  },
-
-  confirmRole: (roomId) => {
-	const {socket} = get();
-	if (socket) socket.emit('confirmRole', roomId);
-  },
-
-  confirmCards: (roomId) => {
-	const {socket} = get();
-	if (socket) socket.emit('confirmCards', roomId);
-  },
-
-  restartGame: (roomId) => {
-	const {socket} = get();
-	if (socket) socket.emit('restartGame', roomId);
-  }
-}));
+	setScannerActive: (active) => set({isScannerActive: active}),
+	setReviewingCards: (val) => set({isReviewingCards: val}),
+	setReviewingRole: (val) => set({isReviewingRole: val}),
+  };
+});

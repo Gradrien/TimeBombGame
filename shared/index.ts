@@ -1,3 +1,5 @@
 export * from './types';
-export * from './achievements'
+export * from './config';
+export * from './achievements';
+export * from './socketEvents';
 export * from './utils';

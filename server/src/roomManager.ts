@@ -1,23 +1,31 @@
-import {Server, Socket} from 'socket.io';
-import {AchievementDef, ACHIEVEMENTS, GameState, MAX_PLAYERS, ValidPlayerCount} from '@timebomb/shared';
-import {assignRoles, assignRolesChaos, generateInitialDeck, distributeCards, gatherAndShuffleRemainingCards} from './gameEngine';
 import {
-  initGameSessionStats,
-  recordCut,
-  recordLoupe,
-  recordRoundEnd,
-  processEndGameStats
-} from './services/statsService';
-import {authenticatePlayer} from './services/authService';
-
-import 'dotenv/config';
-import {Pool} from 'pg';
-import {PrismaPg} from '@prisma/adapter-pg';
-import {PrismaClient} from "./generated/client/index";
-
-const pool = new Pool({connectionString: process.env.DATABASE_URL});
-const adapter = new PrismaPg(pool);
-const prisma = new PrismaClient({adapter});
+  BROUILLEUR_JAM_CHANCE,
+  GamePhase,
+  GameState,
+  getLoupeSuccessChance,
+  isValidPlayerCount,
+  LOUPE_LAST_USABLE_ROUND,
+  LOUPE_MIN_PLAYERS,
+  MAX_PLAYERS,
+  TURN_DURATION_OPTIONS,
+} from '@timebomb/shared';
+import {
+  applyCut,
+  assignRoles,
+  assignRolesChaos,
+  createInitialRoomState,
+  distributeCards,
+  everyoneReadyToRestart,
+  generateInitialDeck,
+  resetRoomToLobby,
+  sanitizeStateForPlayer,
+} from './gameEngine';
+import {initGameSessionStats, processEndGameStats, recordLoupe} from './services/statsService';
+import {authenticatePlayer, toSafeUser, validateUsername} from './services/authService';
+import {createSessionToken, verifySessionToken} from './services/tokenService';
+import {buildUserProfile} from './services/profileService';
+import {prisma} from './db';
+import type {TypedServer, TypedSocket} from './socketTypes';
 
 const activeRooms = new Map<string, GameState>();
 const activeTimers = new Map<string, NodeJS.Timeout>();
@@ -32,6 +40,11 @@ const disconnectTimers = new Map<string, NodeJS.Timeout>();
  */
 const RECONNECT_GRACE_MS = 60_000;
 
+/** Time granted to the client to play the cut animation before the clock restarts. */
+const CUT_ANIMATION_DELAY_MS = 2500;
+/** Extra time granted to the clock during the loupe animation. */
+const LOUPE_ANIMATION_EXTRA_MS = 3000;
+
 function generateRoomCode() {
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
   let code = '';
@@ -39,23 +52,7 @@ function generateRoomCode() {
   return code;
 }
 
-function sanitizeStateForPlayer(gameState: GameState, targetPlayerId: string): GameState {
-  const sanitized = JSON.parse(JSON.stringify(gameState)) as GameState;
-
-  sanitized.players = sanitized.players.map(p => {
-	if (p.id === targetPlayerId) {
-	  p.secretCards = p.cards.filter(c => !c.isRevealed).map(c => c.type);
-	} else {
-	  if (sanitized.status !== 'FINISHED') delete p.role;
-	  p.cards = p.cards.map(c => (c.isRevealed || c.isPublic) ? c : {...c, type: 'SAFE'});
-	}
-	return p;
-  });
-
-  return sanitized;
-}
-
-function broadcastGameState(io: Server, roomId: string) {
+function broadcastGameState(io: TypedServer, roomId: string) {
   const room = activeRooms.get(roomId);
   if (!room) return;
   room.players.forEach(player => {
@@ -64,134 +61,88 @@ function broadcastGameState(io: Server, roomId: string) {
   });
 }
 
-// --- GESTION DU CHRONOMÈTRE ---
+// --- Turn timer ---
+
 function clearTurnTimer(roomId: string) {
-  if (activeTimers.has(roomId)) {
-	clearTimeout(activeTimers.get(roomId));
+  const timer = activeTimers.get(roomId);
+  if (timer) {
+	clearTimeout(timer);
 	activeTimers.delete(roomId);
   }
 }
 
-function startTurnTimer(io: Server, roomId: string, delayMs: number = 0) {
+/** Arms the current turn's clock for `durationMs` milliseconds. */
+function armTurnTimer(io: TypedServer, roomId: string, durationMs: number) {
   const room = activeRooms.get(roomId);
   if (!room || !room.isTimerModeEnabled) return;
 
   clearTurnTimer(roomId);
-
-  const durationMs = (room.timerDuration || 15) * 1000;
-
-  // On décale la fin du tour pour absorber l'animation
-  room.turnEndTime = Date.now() + durationMs + delayMs;
-
-  const timeoutId = setTimeout(() => {
-	executeRandomCut(io, roomId);
-  }, durationMs + delayMs);
-
-  activeTimers.set(roomId, timeoutId);
+  room.turnEndTime = Date.now() + durationMs;
+  activeTimers.set(roomId, setTimeout(() => executeRandomCut(io, roomId), durationMs));
 }
 
-function executeRandomCut(io: Server, roomId: string) {
+function startTurnTimer(io: TypedServer, roomId: string, delayMs: number = 0) {
+  const room = activeRooms.get(roomId);
+  if (!room || !room.isTimerModeEnabled) return;
+  // Push the turn's end back to absorb the client-side animation.
+  armTurnTimer(io, roomId, (room.timerDuration ?? TURN_DURATION_OPTIONS[1]) * 1000 + delayMs);
+}
+
+/** Extends the running clock without resetting it (animations). */
+function extendTurnTimer(io: TypedServer, roomId: string, extraMs: number) {
+  const room = activeRooms.get(roomId);
+  if (!room || !room.isTimerModeEnabled || !activeTimers.has(roomId)) return;
+  const remainingMs = Math.max(0, (room.turnEndTime ?? Date.now()) - Date.now());
+  armTurnTimer(io, roomId, remainingMs + extraMs);
+}
+
+/** The clock ran out: cut a random card on behalf of the clippers holder. */
+function executeRandomCut(io: TypedServer, roomId: string) {
   const room = activeRooms.get(roomId);
   if (!room || room.status !== 'PLAYING' || room.phase !== 'PLAYING') return;
 
   const clippersId = room.playerWithClippers;
-  // Trouver tous les joueurs ciblables (sauf celui qui a la pince, et qui ont encore des cartes)
   const validPlayers = room.players.filter(p => p.id !== clippersId && p.cards.some(c => !c.isRevealed));
-
   if (validPlayers.length === 0) return;
 
-  // Choix aléatoire d'un joueur et d'une de ses cartes
   const randomPlayer = validPlayers[Math.floor(Math.random() * validPlayers.length)];
   const unrevealedCards = randomPlayer.cards.filter(c => !c.isRevealed);
   const randomCard = unrevealedCards[Math.floor(Math.random() * unrevealedCards.length)];
 
-  // On exécute la coupe de force
-  handleCutLogic(io, roomId, clippersId, randomPlayer.id, randomCard.id);
+  handleCutRequest(io, roomId, clippersId, randomPlayer.id, randomCard.id);
 }
 
-// --- LOGIQUE COMMUNE DE COUPE ---
-function handleCutLogic(io: Server, roomId: string, sourcePlayerId: string, targetPlayerId: string, cardId: string) {
+// --- Cut orchestration ---
+
+function handleCutRequest(io: TypedServer, roomId: string, sourcePlayerId: string, targetPlayerId: string, cardId: string) {
   const room = activeRooms.get(roomId);
-  if (!room || room.status !== 'PLAYING' || room.phase !== 'PLAYING') return;
+  if (!room) return;
+
+  const outcome = applyCut(room, sourcePlayerId, targetPlayerId, cardId);
+  // Illegal cut (wrong turn, card already revealed…): ignore it without
+  // touching the running clock.
+  if (!outcome) return;
 
   clearTurnTimer(roomId);
 
-  if (room.playerWithClippers !== sourcePlayerId) return;
-  if (sourcePlayerId === targetPlayerId) return;
-
-  const targetPlayer = room.players.find(p => p.id === targetPlayerId);
-  if (!targetPlayer) return;
-
-  const cardIndex = targetPlayer.cards.findIndex(c => c.id === cardId);
-  if (cardIndex === -1) return;
-
-  const card = targetPlayer.cards[cardIndex]!;
-  if (!card || card.isRevealed) return;
-
-  card.isRevealed = true;
-  room.revealedCards.push(card);
-  targetPlayer.cards.splice(cardIndex, 1);
-  room.cardsRevealedThisRound++;
-  room.playerWithClippers = targetPlayerId;
-
-  if (room.stats) {
-	recordCut(room.stats, sourcePlayerId, targetPlayerId, card.type, room.currentRound, room.cardsRevealedThisRound);
-  }
-
-  // Vérification de victoire
-  if (card.type === 'BOMB') {
-	room.status = 'FINISHED';
-	room.winner = 'MORIARTY';
-  } else if (card.type === 'DEFUSE') {
-	room.totalDefusesFound++;
-	if (room.totalDefusesFound === room.totalDefusesNeeded) {
-	  room.status = 'FINISHED';
-	  room.winner = 'SHERLOCK';
-	}
-  } else if (card.type === 'LOUPE') {
-	room.teamHasLoupe = true;
-  }
-
-  // Vérification de fin de manche
-  if (room.status === 'PLAYING' && room.cardsRevealedThisRound === room.players.length) {
-	if (room.stats) {
-	  const defusesThisRound = room.revealedCards.slice(-room.players.length).filter(c => c.type === 'DEFUSE').length;
-	  recordRoundEnd(room.stats, defusesThisRound, false);
-	}
-
-	if (room.currentRound === 4) {
-	  room.status = 'FINISHED';
-	  room.winner = 'MORIARTY';
-	} else {
-	  room.currentRound++;
-	  room.cardsRevealedThisRound = 0;
-	  room.phase = 'CARD_REVEAL';
-	  room.readyPlayers = [];
-	  const newDeck = gatherAndShuffleRemainingCards(room.players);
-	  distributeCards(newDeck, room.players);
-	}
-  }
-
-  if (room.status === 'FINISHED' && room.stats) {
+  if (outcome.finished && room.stats) {
 	processEndGameStats(room, room.stats)
 		.then(unlockedBadges => {
-		  if (unlockedBadges && unlockedBadges.length > 0) {
-			io.to(roomId).emit('achievementsUnlocked', unlockedBadges);
-		  }
+		  if (unlockedBadges.length > 0) io.to(roomId).emit('achievementsUnlocked', unlockedBadges);
 		})
-		.catch(err => console.error("Erreur d'attribution des succès :", err));
+		.catch(err => console.error('Failed to award achievements:', err));
   }
 
-  // Si le jeu continue sur la même manche, on relance le chronomètre pour le nouveau joueur
+  // If the game continues within the same round, restart the clock for the
+  // new clippers holder.
   if (room.status === 'PLAYING' && room.phase === 'PLAYING') {
-	startTurnTimer(io, roomId, 2500);
+	startTurnTimer(io, roomId, CUT_ANIMATION_DELAY_MS);
   }
 
   broadcastGameState(io, roomId);
 }
 
-
-// --- GESTION DES CONNEXIONS / RECONNEXIONS ---
+// --- Connections / reconnections ---
 
 function disconnectKey(roomId: string, playerId: string): string {
   return `${roomId}:${playerId}`;
@@ -202,8 +153,8 @@ function cancelScheduledRemoval(roomId: string, playerId: string) {
   const key = disconnectKey(roomId, playerId);
   const timer = disconnectTimers.get(key);
   if (timer) {
-    clearTimeout(timer);
-    disconnectTimers.delete(key);
+	clearTimeout(timer);
+	disconnectTimers.delete(key);
   }
 }
 
@@ -215,8 +166,16 @@ function destroyRoom(roomId: string) {
   activeRooms.delete(roomId);
 }
 
+/** Puts a room back in the lobby, clearing its clock. */
+function resetRoom(roomId: string) {
+  const room = activeRooms.get(roomId);
+  if (!room) return;
+  clearTurnTimer(roomId);
+  resetRoomToLobby(room);
+}
+
 /** Removes a player from a room, transferring host or destroying the room as needed. */
-function removePlayer(io: Server, roomId: string, playerId: string) {
+function removePlayer(io: TypedServer, roomId: string, playerId: string) {
   const room = activeRooms.get(roomId);
   if (!room) return;
   cancelScheduledRemoval(roomId, playerId);
@@ -226,18 +185,18 @@ function removePlayer(io: Server, roomId: string, playerId: string) {
 
   room.players.splice(index, 1);
   if (room.players.length === 0) {
-    destroyRoom(roomId);
-    return;
+	destroyRoom(roomId);
+	return;
   }
-  // Transfère l'ownership si l'hôte part.
+  // Transfer ownership if the host leaves.
   if (!room.players.some(p => p.isHost)) room.players[0].isHost = true;
 
-  // La Loupe nécessite au moins 5 joueurs : on la désactive automatiquement en dessous
-  if (room.players.length < 5) room.isLoupeModeEnabled = false;
+  // The Loupe requires at least 5 players: auto-disable it below that.
+  if (room.players.length < LOUPE_MIN_PLAYERS) room.isLoupeModeEnabled = false;
 
-  // Si un joueur quitte l'écran de fin, les restants déjà prêts ne doivent pas
-  // rester bloqués : on bascule au lobby dès que tout le monde est prêt.
-  if (room.status === 'FINISHED' && everyoneReadyToRestart(room)) resetRoomToLobby(roomId);
+  // If a player leaves the end screen, the remaining already-ready players
+  // must not stay stuck: switch to the lobby as soon as everyone is ready.
+  if (room.status === 'FINISHED' && everyoneReadyToRestart(room)) resetRoom(roomId);
 
   broadcastGameState(io, roomId);
 }
@@ -247,8 +206,8 @@ function markConnected(roomId: string, playerId: string, socketId: string) {
   cancelScheduledRemoval(roomId, playerId);
   const player = activeRooms.get(roomId)?.players.find(p => p.id === playerId);
   if (player) {
-    player.socketId = socketId;
-    player.connected = true;
+	player.socketId = socketId;
+	player.connected = true;
   }
 }
 
@@ -257,7 +216,7 @@ function markConnected(roomId: string, playerId: string, socketId: string) {
  * immediately) and a grace timer is armed. When it fires we reclaim the seat if
  * the room is still in the lobby, and destroy any fully-abandoned room.
  */
-function handleDisconnect(io: Server, roomId: string, playerId: string) {
+function handleDisconnect(io: TypedServer, roomId: string, playerId: string) {
   const room = activeRooms.get(roomId);
   const player = room?.players.find(p => p.id === playerId);
   if (!room || !player) return;
@@ -265,94 +224,174 @@ function handleDisconnect(io: Server, roomId: string, playerId: string) {
   player.connected = false;
   player.socketId = undefined;
 
-  // Un déconnecté sur l'écran de fin ne doit pas empêcher les autres de relancer.
-  if (room.status === 'FINISHED' && everyoneReadyToRestart(room)) resetRoomToLobby(roomId);
+  // A disconnected player on the end screen must not block the others from restarting.
+  if (room.status === 'FINISHED' && everyoneReadyToRestart(room)) resetRoom(roomId);
 
   broadcastGameState(io, roomId);
 
   cancelScheduledRemoval(roomId, playerId);
   const timer = setTimeout(() => {
-    disconnectTimers.delete(disconnectKey(roomId, playerId));
-    const current = activeRooms.get(roomId);
-    const stillThere = current?.players.find(p => p.id === playerId);
-    if (!current || !stillThere || stillThere.connected) return; // revenu entre-temps
+	disconnectTimers.delete(disconnectKey(roomId, playerId));
+	const current = activeRooms.get(roomId);
+	const stillThere = current?.players.find(p => p.id === playerId);
+	if (!current || !stillThere || stillThere.connected) return; // came back meanwhile
 
-    // Room totalement abandonnée -> on la détruit (évite les rooms/timers fantômes).
-    if (current.players.every(p => !p.connected)) {
-      destroyRoom(roomId);
-      return;
-    }
+	// Fully abandoned room -> destroy it (avoids ghost rooms/timers).
+	if (current.players.every(p => !p.connected)) {
+	  destroyRoom(roomId);
+	  return;
+	}
 
-    // Dans le lobby, un absent libère sa place ; en pleine partie on garde le
-    // siège pour une reconnexion ultérieure (l'état reste cohérent et les
-    // autres peuvent toujours voter l'abandon).
-    if (current.status === 'LOBBY') {
-      removePlayer(io, roomId, playerId);
-    }
+	// In the lobby an absent player frees their seat; mid-game the seat is
+	// kept for a later reconnection (the state stays consistent and the others
+	// can still vote to surrender).
+	if (current.status === 'LOBBY') {
+	  removePlayer(io, roomId, playerId);
+	}
   }, RECONNECT_GRACE_MS);
 
   disconnectTimers.set(disconnectKey(roomId, playerId), timer);
 }
 
+/** Reattaches an authenticated socket to the seat its player already holds, if any. */
+function reattachToSeat(io: TypedServer, socket: TypedSocket, userId: string) {
+  for (const [roomId, room] of activeRooms.entries()) {
+	const player = room.players.find(p => p.id === userId);
+	if (player) {
+	  markConnected(roomId, userId, socket.id);
+	  socket.join(roomId);
+	  broadcastGameState(io, roomId);
+	  return;
+	}
+  }
+}
+
+// --- Authorization helpers ---
+
 /**
- * True once every player still present has either gone back to the menus
- * ("Rejouer") or is disconnected — i.e. nobody connected is left on the end
- * screen. Used to decide when the whole room may return to the lobby.
+ * Socket-bound identity, set by `login` / `authenticate`.
+ * This is the ONLY source of identity: no handler trusts a client-supplied
+ * `playerId`.
  */
-function everyoneReadyToRestart(room: GameState): boolean {
-  if (room.players.length === 0) return false;
-  const ready = room.restartReady ?? [];
-  return room.players.every(p => ready.includes(p.id) || p.connected === false);
+function requireUser(socket: TypedSocket): { userId: string; username: string } | null {
+  const {userId, username} = socket.data;
+  if (!userId || !username) {
+	socket.emit('gameError', 'Identification requise.');
+	return null;
+  }
+  return {userId, username};
 }
 
-/** Resets a room to its lobby state. Shared by restart & surrender (DRY). */
-function resetRoomToLobby(roomId: string) {
+/** Applies a lobby setting, host only. */
+function applyHostSetting(io: TypedServer, socket: TypedSocket, roomId: string, apply: (room: GameState) => void) {
   const room = activeRooms.get(roomId);
-  if (!room) return;
-  clearTurnTimer(roomId);
-
-  room.status = 'LOBBY';
-  room.phase = 'NOT_STARTED';
-  room.readyPlayers = [];
-  room.restartReady = [];
-  room.revealedCards = [];
-  room.currentRound = 1;
-  room.cardsRevealedThisRound = 0;
-  room.totalDefusesFound = 0;
-  room.teamHasLoupe = false;
-  room.surrenderVotes = [];
-  delete room.stats;
-
-  room.players.forEach(p => {
-    p.cards = [];
-    p.secretCards = [];
-    delete p.role;
-  });
+  if (!room || room.status !== 'LOBBY') return;
+  const me = room.players.find(p => p.socketId === socket.id);
+  if (!me || !me.isHost) return;
+  apply(room);
+  broadcastGameState(io, roomId);
 }
 
-export function setupSocketHandlers(io: Server, socket: Socket) {
+/** Records a player's "ready" and advances the phase once everyone is. */
+function handleReadyConfirmation(io: TypedServer, socket: TypedSocket, roomId: string, phase: GamePhase, advance: (room: GameState) => void) {
+  const room = activeRooms.get(roomId);
+  if (!room || room.phase !== phase) return;
+  const player = room.players.find(p => p.socketId === socket.id);
+  if (player && !room.readyPlayers.includes(player.id)) room.readyPlayers.push(player.id);
+  if (room.readyPlayers.length === room.players.length) {
+	room.readyPlayers = [];
+	advance(room);
+  }
+  broadcastGameState(io, roomId);
+}
 
-  socket.on('login', async (username: string, pin: string, callback: Function) => {
+// --- Handlers ---
+
+export function setupSocketHandlers(io: TypedServer, socket: TypedSocket) {
+
+  // ------------------------------------------------------------------
+  // Account & session
+  // ------------------------------------------------------------------
+
+  socket.on('login', async (username, pin, ack) => {
 	try {
 	  const user = await authenticatePlayer(username, pin);
-	  callback({success: true, user});
-	} catch (error: any) {
-	  callback({success: false, error: error.message});
+	  socket.data.userId = user.id;
+	  socket.data.username = user.username;
+	  ack({success: true, user, token: createSessionToken(user.id)});
+	} catch (error) {
+	  ack({success: false, error: error instanceof Error ? error.message : 'Erreur serveur.'});
 	}
   });
 
-  socket.on('checkReconnection', (playerId: string) => {
-	for (const [roomId, room] of activeRooms.entries()) {
-	  const player = room.players.find(p => p.id === playerId);
-	  if (player) {
-		markConnected(roomId, playerId, socket.id);
-		socket.join(roomId);
-		io.to(socket.id).emit('gameStateUpdated', sanitizeStateForPlayer(room, playerId));
-		broadcastGameState(io, roomId);
-		return;
-	  }
+  socket.on('authenticate', async (token, ack) => {
+	const userId = verifySessionToken(token);
+	if (!userId) return ack({success: false});
+
+	let user;
+	try {
+	  user = await prisma.user.findUnique({where: {id: userId}});
+	} catch (error) {
+	  console.error('authenticate failed:', error);
+	  return ack({success: false});
+	}
+	if (!user) return ack({success: false});
+
+	socket.data.userId = user.id;
+	socket.data.username = user.username;
+	ack({success: true, user: toSafeUser(user)});
+
+	// Game resumption: if the player holds a seat somewhere, reattach them to it.
+	reattachToSeat(io, socket, user.id);
+  });
+
+  socket.on('getUserProfile', async (ack) => {
+	const userId = socket.data.userId;
+	if (!userId) return ack(null);
+	try {
+	  ack(await buildUserProfile(userId));
+	} catch (error) {
+	  console.error('Failed to build profile:', error);
+	  ack(null);
 	}
   });
+
+  socket.on('updateUsername', async (newName, ack) => {
+	const userId = socket.data.userId;
+	if (!userId) return ack({success: false, error: 'Identification requise.'});
+
+	try {
+	  const clean = validateUsername(newName);
+
+	  const existingUser = await prisma.user.findFirst({
+		where: {username: {equals: clean, mode: 'insensitive'}},
+	  });
+	  if (existingUser && existingUser.id !== userId) {
+		return ack({success: false, error: 'Ce pseudo est déjà utilisé par un autre agent.'});
+	  }
+
+	  await prisma.user.update({where: {id: userId}, data: {username: clean}});
+	  socket.data.username = clean;
+
+	  // Update the name in the active room if the player is in a game.
+	  for (const [roomId, room] of activeRooms.entries()) {
+		const player = room.players.find(p => p.id === userId);
+		if (player) {
+		  player.name = clean;
+		  broadcastGameState(io, roomId);
+		}
+	  }
+
+	  ack({success: true});
+	} catch (error) {
+	  const message = error instanceof Error ? error.message : 'Erreur serveur lors de la mise à jour.';
+	  ack({success: false, error: message});
+	}
+  });
+
+  // ------------------------------------------------------------------
+  // Rooms
+  // ------------------------------------------------------------------
 
   socket.on('getOpenRooms', () => {
 	const openRooms = [];
@@ -364,78 +403,37 @@ export function setupSocketHandlers(io: Server, socket: Socket) {
 	socket.emit('openRoomsList', openRooms);
   });
 
-  socket.on('createRoom', (playerName: string, playerId: string) => {
-	const roomId = generateRoomCode();
-	const room: GameState = {
-	  roomId,
-	  phase: 'NOT_STARTED',
-	  status: 'LOBBY',
-	  players: [],
-	  currentRound: 1,
-	  cardsRevealedThisRound: 0,
-	  totalDefusesFound: 0,
-	  totalDefusesNeeded: 0,
-	  playerWithClippers: '',
-	  isLoupeModeEnabled: false,
-	  isTimerModeEnabled: false,
-	  isChaosModeEnabled: false,
-	  timerDuration: 15,
-	  teamHasLoupe: false,
-	  revealedCards: [],
-	  readyPlayers: [],
-	  surrenderVotes: [],
-	};
+  socket.on('createRoom', () => {
+	const identity = requireUser(socket);
+	if (!identity) return;
 
-	room.players.push({id: playerId, name: playerName, cards: [], isHost: true, socketId: socket.id, connected: true});
+	const roomId = generateRoomCode();
+	const room = createInitialRoomState(roomId);
+	room.players.push({
+	  id: identity.userId,
+	  name: identity.username,
+	  cards: [],
+	  isHost: true,
+	  socketId: socket.id,
+	  connected: true,
+	});
+
 	activeRooms.set(roomId, room);
 	socket.join(roomId);
 	broadcastGameState(io, roomId);
   });
 
-  socket.on('toggleLoupeMode', (roomId: string, enabled: boolean) => {
-	const room = activeRooms.get(roomId);
-	if (room && room.status === 'LOBBY') {
-	  const me = room.players.find(p => p.socketId === socket.id);
-	  if (me && me.isHost) {
-		room.isLoupeModeEnabled = enabled;
-		broadcastGameState(io, roomId);
-	  }
-	}
-  });
+  socket.on('joinRoom', (roomId) => {
+	const identity = requireUser(socket);
+	if (!identity) return;
 
-  // --- Handler Toggle Chaos ---
-  socket.on('toggleChaosMode', (roomId: string, enabled: boolean) => {
-	const room = activeRooms.get(roomId);
-	if (room && room.status === 'LOBBY') {
-	  const me = room.players.find(p => p.socketId === socket.id);
-	  if (me && me.isHost) {
-		room.isChaosModeEnabled = enabled;
-		broadcastGameState(io, roomId);
-	  }
-	}
-  });
-
-  // --- NOUVEAU : Handler Toggle Chrono ---
-  socket.on('toggleTimerMode', (roomId: string, enabled: boolean, duration: number) => {
-	const room = activeRooms.get(roomId);
-	if (room && room.status === 'LOBBY') {
-	  const me = room.players.find(p => p.socketId === socket.id);
-	  if (me && me.isHost) {
-		room.isTimerModeEnabled = enabled;
-		room.timerDuration = duration;
-		broadcastGameState(io, roomId);
-	  }
-	}
-  });
-
-  socket.on('joinRoom', (roomId: string, playerName: string, playerId: string) => {
 	const room = activeRooms.get(roomId);
 	if (!room) return socket.emit('gameError', 'Ce code de Room n\'existe pas');
 
-	const existingPlayer = room.players.find(p => p.id === playerId);
+	const existingPlayer = room.players.find(p => p.id === identity.userId);
 	if (existingPlayer) {
-	  // Reconnexion / rejoin : on rebranche le joueur sur son siège existant.
-	  markConnected(roomId, playerId, socket.id);
+	  // Reconnection / rejoin: reattach the player to their existing seat.
+	  markConnected(roomId, identity.userId, socket.id);
 	  socket.join(roomId);
 	  broadcastGameState(io, roomId);
 	  return;
@@ -444,223 +442,51 @@ export function setupSocketHandlers(io: Server, socket: Socket) {
 	if (room.status !== 'LOBBY') return socket.emit('gameError', 'Partie déjà en cours, lobby fermé');
 	if (room.players.length >= MAX_PLAYERS) return socket.emit('gameError', `Room complète (${MAX_PLAYERS} joueurs max)`);
 
-	room.players.push({id: playerId, name: playerName, cards: [], isHost: false, socketId: socket.id, connected: true});
+	room.players.push({
+	  id: identity.userId,
+	  name: identity.username,
+	  cards: [],
+	  isHost: false,
+	  socketId: socket.id,
+	  connected: true,
+	});
 	socket.join(roomId);
 	broadcastGameState(io, roomId);
   });
 
-  socket.on('startGame', (roomId: string) => {
-	const room = activeRooms.get(roomId);
-	if (!room || room.status !== 'LOBBY' || room.players.length < 4 || room.players.length > MAX_PLAYERS) return;
-	const randomIndex = Math.floor(Math.random() * room.players.length);
-
-	room.status = 'PLAYING';
-	room.phase = 'ROLE_REVEAL';
-	room.readyPlayers = [];
-	room.revealedCards = [];
-	room.totalDefusesFound = 0;
-	room.totalDefusesNeeded = room.players.length;
-	room.playerWithClippers = room.players[randomIndex].id;
-	room.teamHasLoupe = false;
-	room.stats = initGameSessionStats();
-
-	if (room.isChaosModeEnabled) {
-	  assignRolesChaos(room.players);
-	} else {
-	  assignRoles(room.players, room.isLoupeModeEnabled);
-	}
-	const deck = generateInitialDeck(room.players.length as ValidPlayerCount, room.isLoupeModeEnabled);
-	distributeCards(deck, room.players);
-	broadcastGameState(io, roomId);
-  });
-
-  socket.on('confirmRole', (roomId: string) => {
-	const room = activeRooms.get(roomId);
-	if (!room || room.phase !== 'ROLE_REVEAL') return;
-	const player = room.players.find(p => p.socketId === socket.id);
-	if (player && !room.readyPlayers.includes(player.id)) room.readyPlayers.push(player.id);
-	if (room.readyPlayers.length === room.players.length) {
-	  room.phase = 'CARD_REVEAL';
-	  room.readyPlayers = [];
-	}
-	broadcastGameState(io, roomId);
-  });
-
-  socket.on('confirmCards', (roomId: string) => {
-	const room = activeRooms.get(roomId);
-	if (!room || room.phase !== 'CARD_REVEAL') return;
-	const player = room.players.find(p => p.socketId === socket.id);
-	if (player && !room.readyPlayers.includes(player.id)) room.readyPlayers.push(player.id);
-	if (room.readyPlayers.length === room.players.length) {
-	  room.phase = 'PLAYING';
-	  room.readyPlayers = [];
-	  startTurnTimer(io, roomId);
-	}
-	broadcastGameState(io, roomId);
-  });
-
-  socket.on('cutCard', (roomId: string, targetPlayerId: string, cardId: string) => {
-	const room = activeRooms.get(roomId);
-	if (!room) return;
-	const me = room.players.find(p => p.socketId === socket.id);
-	if (!me) return;
-
-	handleCutLogic(io, roomId, me.id, targetPlayerId, cardId);
-  });
-
-  socket.on('getUserProfile', async (playerId, callback) => {
-	try {
-	  const user = await prisma.user.findUnique({
-		where: { id: playerId },
-		include: { achievements: true }
-	  });
-
-	  if (!user) return callback(null);
-
-	  const unlockedIds = user.achievements.map(a => a.achievementId);
-
-	  // Fonction de progression (déplacée du front vers le back)
-	  const getProgress = (achId: string) => {
-		if (achId.startsWith('DEMOLITION')) return user.bombsExploded || 0;
-		if (achId.startsWith('DOIGTS_FEE')) return user.cablesCut || 0;
-		if (achId.startsWith('ROI_STRATEGIE')) return user.gamesWon || 0;
-		if (achId.startsWith('SHERLOCK')) return user.winsSherlock || 0;
-		if (achId.startsWith('MORIARTY')) return user.winsMoriarty || 0;
-		if (achId.startsWith('OEIL_LYNX')) return user.loupesUsed || 0;
-		if (achId.startsWith('BROUILLEUR')) return user.cardsJammed || 0;
-		return unlockedIds.includes(achId) ? 1 : 0;
-	  };
-
-	  // Grouper et filtrer les paliers
-	  const groups: Record<string, AchievementDef[]> = {};
-	  Object.values(ACHIEVEMENTS).forEach((ach) => {
-		const baseId = ach.id.replace(/_\d+$/, '');
-		if (!groups[baseId]) groups[baseId] = [];
-		groups[baseId].push(ach);
-	  });
-
-	  const formattedAchievements: any[] = [];
-
-	  Object.values(groups).forEach((group) => {
-		group.sort((a, b) => (a.tier || 0) - (b.tier || 0));
-		let currentAch = group[0];
-		for (let i = 0; i < group.length; i++) {
-		  if (!unlockedIds.includes(group[i].id)) {
-			currentAch = group[i];
-			break;
-		  }
-		  currentAch = group[i];
-		}
-
-		const rawProgress = getProgress(currentAch.id);
-		const isOneShot = currentAch.target === undefined;
-		const progress = isOneShot ? rawProgress : Math.min(rawProgress, currentAch.target!);
-		const percent = !isOneShot ? Math.round((progress / currentAch.target!) * 100) : (unlockedIds.includes(currentAch.id) ? 100 : 0);
-
-		formattedAchievements.push({
-		  ...currentAch,
-		  isUnlocked: unlockedIds.includes(currentAch.id),
-		  progress,
-		  percent,
-		  isOneShot
-		});
-	  });
-
-	  // On renvoie l'objet formaté complet
-	  callback({ ...user, formattedAchievements });
-
-	} catch (error) {
-	  console.error("Erreur profil:", error);
-	  callback(null);
-	}
-  });
-
-  socket.on('useLoupe', (roomId: string, targetPlayerId: string, cardId: string) => {
-	const room = activeRooms.get(roomId);
-	if (!room || room.status !== 'PLAYING' || !room.teamHasLoupe) return;
-
-	// Règle 1 : Inutilisable au dernier round (Manche 4)
-	if (room.currentRound >= 4) return;
-
-	const targetPlayer = room.players.find(p => p.id === targetPlayerId);
-	if (!targetPlayer) return;
-
-	// Règle 2 : Inutilisable sur un joueur avec une seule carte cachée
-	const hiddenCards = targetPlayer.cards.filter(c => !c.isRevealed && !c.isPublic);
-	if (hiddenCards.length <= 1) return;
-
-	const card = targetPlayer.cards.find(c => c.id === cardId);
-	if (!card || card.isRevealed || card.isPublic) return;
-
-	room.teamHasLoupe = false;
-
-	let successChance;
-
-	if (targetPlayer.role === 'BROUILLEUR') {
-	  // Le pouvoir passif du Brouilleur s'active : 90% de chance d'échec
-	  successChance = 0.1;
-	} else {
-	  // Calcul normal : 100% Round 1, 90% Round 2, 80% Round 3
-	  successChance = 1 - ((room.currentRound - 1) * 0.1);
-	}
-
-	const isSuccess = Math.random() <= successChance;
-
-	const me = room.players.find(p => p.socketId === socket.id);
-	if (me && room.stats) {
-	  const isJammed = targetPlayer.role === 'BROUILLEUR' && !isSuccess;
-	  recordLoupe(room.stats, me.id, isJammed, isJammed ? targetPlayer.id : undefined);
-	}
-
-	if (isSuccess) {
-	  card.isPublic = true;
-	  io.to(roomId).emit('loupeResult', {success: true, targetName: targetPlayer.name});
-	} else {
-	  io.to(roomId).emit('loupeResult', {success: false, targetName: targetPlayer.name});
-	}
-
-	// On accorde un délai supplémentaire au timer pour compenser l'animation de la loupe
-	if (room.isTimerModeEnabled && activeTimers.has(roomId)) {
-	  clearTurnTimer(roomId);
-
-	  const remainingMs = Math.max(0, (room.turnEndTime || Date.now()) - Date.now());
-	  const newRemainingMs = remainingMs + 3000; // <-- Délai de la loupe
-
-	  room.turnEndTime = Date.now() + newRemainingMs;
-
-	  const timeoutId = setTimeout(() => {
-		executeRandomCut(io, roomId);
-	  }, newRemainingMs);
-
-	  activeTimers.set(roomId, timeoutId);
-	}
-
-	broadcastGameState(io, roomId);
-  });
-
-  socket.on('leaveRoom', (roomId: string) => {
+  socket.on('leaveRoom', (roomId) => {
 	const room = activeRooms.get(roomId);
 	if (!room) return;
 
-	// Départ explicite : on libère immédiatement le siège (pas de délai de grâce).
 	const player = room.players.find(p => p.socketId === socket.id);
-	if (player) removePlayer(io, roomId, player.id);
+	if (player) {
+	  if (room.status === 'PLAYING') {
+		// Mid-game, removing the player would make their cards vanish
+		// (bomb/defuses included) and could strand the clippers: keep their
+		// seat as for a disconnection — they can come back, or the others can
+		// vote to surrender.
+		handleDisconnect(io, roomId, player.id);
+	  } else {
+		// Outside a game (lobby / end screen): free the seat immediately.
+		removePlayer(io, roomId, player.id);
+	  }
+	}
 	socket.leave(roomId);
   });
 
-  socket.on('kickPlayer', (roomId: string, targetPlayerId: string) => {
+  socket.on('kickPlayer', (roomId, targetPlayerId) => {
 	const room = activeRooms.get(roomId);
-	// On ne peut expulser que depuis le lobby (jamais en pleine partie).
+	// Kicking is lobby-only (never mid-game).
 	if (!room || room.status !== 'LOBBY') return;
 
 	const me = room.players.find(p => p.socketId === socket.id);
-	if (!me || !me.isHost) return;        // Seul l'hôte expulse.
-	if (me.id === targetPlayerId) return; // L'hôte ne peut pas s'expulser lui-même.
+	if (!me || !me.isHost) return;        // Only the host can kick.
+	if (me.id === targetPlayerId) return; // The host cannot kick themselves.
 
 	const target = room.players.find(p => p.id === targetPlayerId);
 	if (!target) return;
 
-	// On prévient le joueur expulsé pour qu'il revienne au menu, puis on libère son siège.
+	// Tell the kicked player to go back to the menu, then free their seat.
 	if (target.socketId) {
 	  io.to(target.socketId).emit('kicked');
 	  io.sockets.sockets.get(target.socketId)?.leave(roomId);
@@ -669,28 +495,175 @@ export function setupSocketHandlers(io: Server, socket: Socket) {
 	removePlayer(io, roomId, targetPlayerId);
   });
 
-  socket.on('restartGame', (roomId: string) => {
+  // ------------------------------------------------------------------
+  // Lobby settings (host only)
+  // ------------------------------------------------------------------
+
+  socket.on('toggleLoupeMode', (roomId, enabled) => {
+	applyHostSetting(io, socket, roomId, room => {
+	  room.isLoupeModeEnabled = enabled;
+	});
+  });
+
+  socket.on('toggleChaosMode', (roomId, enabled) => {
+	applyHostSetting(io, socket, roomId, room => {
+	  room.isChaosModeEnabled = enabled;
+	});
+  });
+
+  socket.on('toggleTimerMode', (roomId, enabled, duration) => {
+	if (!(TURN_DURATION_OPTIONS as readonly number[]).includes(duration)) return;
+	applyHostSetting(io, socket, roomId, room => {
+	  room.isTimerModeEnabled = enabled;
+	  room.timerDuration = duration;
+	});
+  });
+
+  // ------------------------------------------------------------------
+  // Game flow
+  // ------------------------------------------------------------------
+
+  socket.on('startGame', (roomId) => {
+	const room = activeRooms.get(roomId);
+	if (!room || room.status !== 'LOBBY') return;
+
+	const count = room.players.length;
+	if (!isValidPlayerCount(count)) return;
+
+	// Only the host can start the game (the UI guarantees it, the server enforces it).
+	const me = room.players.find(p => p.socketId === socket.id);
+	if (!me || !me.isHost) return;
+
+	room.status = 'PLAYING';
+	room.phase = 'ROLE_REVEAL';
+	room.readyPlayers = [];
+	room.revealedCards = [];
+	room.totalDefusesFound = 0;
+	room.totalDefusesNeeded = count;
+	room.playerWithClippers = room.players[Math.floor(Math.random() * count)].id;
+	room.teamHasLoupe = false;
+	room.stats = initGameSessionStats();
+
+	if (room.isChaosModeEnabled) {
+	  assignRolesChaos(room.players, room.isLoupeModeEnabled);
+	} else {
+	  assignRoles(room.players, room.isLoupeModeEnabled);
+	}
+	distributeCards(generateInitialDeck(count, room.isLoupeModeEnabled), room.players);
+	broadcastGameState(io, roomId);
+  });
+
+  socket.on('confirmRole', (roomId) => {
+	handleReadyConfirmation(io, socket, roomId, 'ROLE_REVEAL', room => {
+	  room.phase = 'CARD_REVEAL';
+	});
+  });
+
+  socket.on('confirmCards', (roomId) => {
+	handleReadyConfirmation(io, socket, roomId, 'CARD_REVEAL', room => {
+	  room.phase = 'PLAYING';
+	  startTurnTimer(io, roomId);
+	});
+  });
+
+  socket.on('cutCard', (roomId, targetPlayerId, cardId) => {
+	const room = activeRooms.get(roomId);
+	if (!room) return;
+	const me = room.players.find(p => p.socketId === socket.id);
+	if (!me) return;
+
+	handleCutRequest(io, roomId, me.id, targetPlayerId, cardId);
+  });
+
+  socket.on('useLoupe', (roomId, targetPlayerId, cardId) => {
+	const room = activeRooms.get(roomId);
+	if (!room || room.status !== 'PLAYING' || !room.teamHasLoupe) return;
+
+	// Rule 1: unusable during the last round.
+	if (room.currentRound > LOUPE_LAST_USABLE_ROUND) return;
+
+	const me = room.players.find(p => p.socketId === socket.id);
+	if (!me) return;
+
+	const targetPlayer = room.players.find(p => p.id === targetPlayerId);
+	if (!targetPlayer) return;
+
+	// Rule 2: unusable on a player who has only one hidden card left.
+	const hiddenCards = targetPlayer.cards.filter(c => !c.isRevealed && !c.isPublic);
+	if (hiddenCards.length <= 1) return;
+
+	const card = targetPlayer.cards.find(c => c.id === cardId);
+	if (!card || card.isRevealed || card.isPublic) return;
+
+	room.teamHasLoupe = false;
+
+	// Brouilleur passive power: the loupe almost always fails on them.
+	const successChance = targetPlayer.role === 'BROUILLEUR'
+		? 1 - BROUILLEUR_JAM_CHANCE
+		: getLoupeSuccessChance(room.currentRound);
+
+	const isSuccess = Math.random() <= successChance;
+
+	if (room.stats) {
+	  const isJammed = targetPlayer.role === 'BROUILLEUR' && !isSuccess;
+	  recordLoupe(room.stats, me.id, isJammed, isJammed ? targetPlayer.id : undefined);
+	}
+
+	if (isSuccess) card.isPublic = true;
+	io.to(roomId).emit('loupeResult', {success: isSuccess, targetName: targetPlayer.name});
+
+	// Grant the clock extra time to compensate for the loupe animation.
+	extendTurnTimer(io, roomId, LOUPE_ANIMATION_EXTRA_MS);
+
+	broadcastGameState(io, roomId);
+  });
+
+  socket.on('voteSurrender', (roomId) => {
+	const room = activeRooms.get(roomId);
+	if (!room || room.status !== 'PLAYING') return;
+
+	// Identity comes from the socket: impossible to vote on someone else's behalf.
+	const me = room.players.find(p => p.socketId === socket.id);
+	if (!me) return;
+
+	if (!room.surrenderVotes) room.surrenderVotes = [];
+	if (!room.surrenderVotes.includes(me.id)) {
+	  room.surrenderVotes.push(me.id);
+	}
+
+	// Absolute majority
+	const requiredVotes = Math.floor(room.players.length / 2) + 1;
+
+	if (room.surrenderVotes.length >= requiredVotes) {
+	  resetRoom(roomId);
+	  io.to(roomId).emit('gameSurrendered');
+	}
+
+	broadcastGameState(io, roomId);
+  });
+
+  socket.on('restartGame', (roomId) => {
 	const room = activeRooms.get(roomId);
 	if (!room || room.status !== 'FINISHED') return;
 
 	const player = room.players.find(p => p.socketId === socket.id);
 	if (!player) return;
 
-	// "Rejouer" est individuel : le joueur rejoint les menus et attend les autres.
+	// "Rejouer" is individual: the player goes back to the menus and waits for the others.
 	if (!room.restartReady) room.restartReady = [];
 	if (!room.restartReady.includes(player.id)) room.restartReady.push(player.id);
 
-	// La room ne retourne au lobby que lorsque tout le monde a cliqué.
-	if (everyoneReadyToRestart(room)) resetRoomToLobby(roomId);
+	// The room only returns to the lobby once everyone has clicked.
+	if (everyoneReadyToRestart(room)) resetRoom(roomId);
 
 	broadcastGameState(io, roomId);
   });
 
   socket.on('disconnect', () => {
-	console.log('💨 Joueur déconnecté:', socket.id);
-	// On marque le joueur comme déconnecté et on arme le délai de grâce, plutôt
-	// que de le retirer immédiatement : un rafraîchissement ou un blip réseau ne
-	// doit pas l'éjecter de sa partie en cours.
+	console.log('💨 Player disconnected:', socket.id);
+	// Flag the player as disconnected and arm the grace period instead of
+	// removing them immediately: a refresh or a network blip must not eject
+	// them from their ongoing game.
 	for (const [roomId, room] of activeRooms.entries()) {
 	  const player = room.players.find(p => p.socketId === socket.id);
 	  if (player) {
@@ -698,55 +671,5 @@ export function setupSocketHandlers(io: Server, socket: Socket) {
 		break;
 	  }
 	}
-  });
-
-  socket.on('updateUsername', async ({ playerId, newName }, callback) => {
-	try {
-	  // 1. Vérifier que le pseudo n'est pas déjà pris par quelqu'un d'autre
-	  const existingUser = await prisma.user.findUnique({ where: { username: newName } });
-	  if (existingUser && existingUser.id !== playerId) {
-		return callback({ success: false, error: "Ce pseudo est déjà utilisé par un autre agent." });
-	  }
-
-	  // 2. Mettre à jour en BDD
-	  await prisma.user.update({
-		where: { id: playerId },
-		data: { username: newName }
-	  });
-
-	  // 3. (Optionnel) Mettre à jour le nom dans la room active si le joueur est en jeu
-	  for (const [roomId, room] of activeRooms.entries()) {
-		const player = room.players.find(p => p.id === playerId);
-		if (player) {
-		  player.name = newName;
-		  broadcastGameState(io, roomId);
-		}
-	  }
-
-	  callback({ success: true });
-	} catch (error) {
-	  console.error("Erreur updateUsername:", error);
-	  callback({ success: false, error: "Erreur serveur lors de la mise à jour." });
-	}
-  });
-
-  socket.on('voteSurrender', (roomId: string, playerId: string) => {
-	const room = activeRooms.get(roomId);
-	if (!room || room.status !== 'PLAYING') return;
-
-	if (!room.surrenderVotes) room.surrenderVotes = [];
-	if (!room.surrenderVotes.includes(playerId)) {
-	  room.surrenderVotes.push(playerId);
-	}
-
-	// Majorité absolue
-	const requiredVotes = Math.floor(room.players.length / 2) + 1;
-
-	if (room.surrenderVotes.length >= requiredVotes) {
-	  resetRoomToLobby(roomId);
-	  io.to(roomId).emit('gameSurrendered');
-	}
-
-	broadcastGameState(io, roomId);
   });
 }

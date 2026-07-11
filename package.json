@@ -27,6 +27,12 @@
     "build:client": "npm run build --workspace=client",
     "start:client": "npm run start --workspace=client",
     "build:server": "npm run build --workspace=server",
-    "start:server": "npm run start --workspace=server"
+    "start:server": "npm run start --workspace=server",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "lint": "npm run lint --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present"
+  },
+  "optionalDependencies": {
+    "lightningcss-linux-x64-gnu": "^1.32.0"
   }
 }
