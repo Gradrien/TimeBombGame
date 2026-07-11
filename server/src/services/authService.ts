@@ -1,25 +1,36 @@
-import {PrismaClient} from "../generated/client/index";
-import { Pool } from 'pg';
-import { PrismaPg } from '@prisma/adapter-pg';
-import 'dotenv/config';
+import { prisma } from '../db';
 import { hashPassword, verifyPassword, isHashed } from './passwordService';
-
-const pool = new Pool({ connectionString: process.env.DATABASE_URL });
-const adapter = new PrismaPg(pool);
-
-const prisma = new PrismaClient({ adapter });
 
 /** Minimal PIN policy, mirrored on the client (4 to 6 characters). */
 const PIN_MIN_LENGTH = 4;
 const PIN_MAX_LENGTH = 6;
 
+/** Username policy, mirrored on the client. */
+export const USERNAME_MIN_LENGTH = 3;
+export const USERNAME_MAX_LENGTH = 12;
+
 /**
  * Removes the secret from a user record before it ever leaves the server.
  * Centralised here (DRY) so no code path can accidentally leak the hash.
  */
-function toSafeUser<T extends { pinCode?: string }>(user: T): Omit<T, 'pinCode'> {
+export function toSafeUser<T extends { pinCode?: string }>(user: T): Omit<T, 'pinCode'> {
   const { pinCode: _pinCode, ...safe } = user;
   return safe;
+}
+
+/**
+ * Validates and normalizes a username.
+ * @throws Error with a user-facing (French) message when invalid.
+ */
+export function validateUsername(username: unknown): string {
+  const clean = typeof username === 'string' ? username.trim() : '';
+  if (!clean) {
+	throw new Error("Le pseudo est obligatoire.");
+  }
+  if (clean.length < USERNAME_MIN_LENGTH || clean.length > USERNAME_MAX_LENGTH) {
+	throw new Error(`Le pseudo doit contenir entre ${USERNAME_MIN_LENGTH} et ${USERNAME_MAX_LENGTH} caractères.`);
+  }
+  return clean;
 }
 
 /**
@@ -38,13 +49,7 @@ function toSafeUser<T extends { pinCode?: string }>(user: T): Omit<T, 'pinCode'>
  */
 export async function authenticatePlayer(username: string, pin: string) {
   // --- Input validation (robustness: reject malformed credentials early) ---
-  const cleanUsername = typeof username === 'string' ? username.trim() : '';
-  if (!cleanUsername) {
-    throw new Error("Le pseudo est obligatoire.");
-  }
-  if (cleanUsername.length < 3 || cleanUsername.length > 12) {
-    throw new Error("Le pseudo doit contenir entre 3 et 12 caractères.");
-  }
+  const cleanUsername = validateUsername(username);
   if (typeof pin !== 'string' || pin.length < PIN_MIN_LENGTH || pin.length > PIN_MAX_LENGTH) {
     throw new Error(`Le code PIN doit contenir entre ${PIN_MIN_LENGTH} et ${PIN_MAX_LENGTH} caractères.`);
   }

@@ -9,7 +9,7 @@ export interface AchievementDef {
 }
 
 export const ACHIEVEMENTS: Record<string, AchievementDef> = {
-  // --- ONE-SHOTS (Actions spécifiques en jeu) ---
+  // --- ONE-SHOTS (specific in-game actions) ---
   PETARD: {
 	id: 'PETARD',
 	name: "T'es en pétard",

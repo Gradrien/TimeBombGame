@@ -1,24 +1,24 @@
 'use client';
 
-import { useEffect } from 'react';
-import { useGameStore } from '@/store/useGameStore';
-import { GameBoard } from '@/components/GameBoard';
-import { PhaseView } from '@/components/views/PhaseView';
-import { HomeView } from '@/components/views/HomeView';
-import { LobbyView } from '@/components/views/LobbyView';
-import { EndView } from '@/components/EndView';
-import {SettingsMenu} from "@/components/SettingsMenu";
+import {useEffect} from 'react';
+import {useGameStore} from '@/store/useGameStore';
+import {HomeView} from '@/components/home/HomeView';
+import {LobbyView} from '@/components/lobby/LobbyView';
+import {PhaseView} from '@/components/phase/PhaseView';
+import {GameBoard} from '@/components/game/GameBoard';
+import {SettingsMenu} from '@/components/game/SettingsMenu';
+import {EndView} from '@/components/end/EndView';
 
 export default function Home() {
-  const { initSocket, gameState, isAnimatingCut, playerName, playerId, startGame } = useGameStore();
+  const {initSocket, gameState, isAnimatingCut, playerId, startGame} = useGameStore();
 
   useEffect(() => {
     initSocket();
   }, [initSocket]);
 
-  // "Rejouer" est individuel : dès qu'un joueur a cliqué, il rejoint le lobby
-  // (et y attend les autres) pendant que la partie reste FINISHED pour ceux qui
-  // sont toujours sur l'écran de fin.
+  // "Rejouer" is individual: as soon as a player clicks it they join the lobby
+  // (and wait for the others there) while the game stays FINISHED for those
+  // still on the end screen.
   const iReturnedToLobby =
       gameState?.status === 'FINISHED' && (gameState.restartReady ?? []).includes(playerId);
   const showLobby = gameState?.status === 'LOBBY' || iReturnedToLobby;
@@ -34,7 +34,6 @@ export default function Home() {
         {gameState && showLobby && (
             <LobbyView
                 gameState={gameState}
-                playerName={playerName}
                 onStart={() => startGame(gameState.roomId)}
             />
         )}
