@@ -8,6 +8,7 @@ import {
   RoleRange,
 } from '@timebomb/shared';
 import {getCardImage, getRoleImage} from '@/utils/assets';
+import {useSkinAsset} from '@/skins';
 import {useGameStore} from '@/store/useGameStore';
 import {Button} from '@/components/ui';
 import {BombTimer} from './BombTimer';
@@ -21,6 +22,7 @@ export function GameStatsBar({
                                revealedCards,
                              }: GameStatsBarProps) {
   const {gameState, isScannerActive, setScannerActive, isReviewingCards, isAnimatingCut, loupeAnimation} = useGameStore();
+  const skinned = useSkinAsset();
 
   // Range derived from GAME_CONFIG: cannot drift from the actual rules.
   const formatRange = ({min, max}: RoleRange) => (min === max ? `${min}` : `${min}-${max}`);
@@ -51,14 +53,14 @@ export function GameStatsBar({
             <div className="flex items-center gap-2">
               <div className="flex items-center gap-2 rounded-lg border border-sherlock/40 bg-sherlock-deep/40 px-2 py-1 shadow-inner">
                 <div className="relative h-9 w-7 landscape:h-10 landscape:w-8">
-                  <Image src={getRoleImage('SHERLOCK')} alt="Sherlock" fill className="object-contain" />
+                  <Image src={skinned(getRoleImage('SHERLOCK'))} alt="Sherlock" fill className="object-contain" />
                 </div>
                 <span className="text-base font-black text-sherlock landscape:text-lg">{dist.blue}</span>
               </div>
 
               <div className="flex items-center gap-2 rounded-lg border border-moriarty/40 bg-moriarty-deep/40 px-2 py-1 shadow-inner">
                 <div className="relative h-9 w-7 landscape:h-10 landscape:w-8">
-                  <Image src={getRoleImage('MORIARTY')} alt="Moriarty" fill className="object-contain" />
+                  <Image src={skinned(getRoleImage('MORIARTY'))} alt="Moriarty" fill className="object-contain" />
                 </div>
                 <span className="text-base font-black text-moriarty landscape:text-lg">{dist.red}</span>
               </div>
@@ -111,7 +113,7 @@ export function GameStatsBar({
               <div className="flex">
                 {recentCards.map((card: CardModel, i: number) => (
                     <div key={i} className="relative h-10 w-7 shrink-0 -ml-2 drop-shadow-xl first:ml-0 landscape:h-12 landscape:w-8 landscape:-ml-3" style={{zIndex: i}}>
-                      <Image src={getCardImage(card.type)} alt="card" fill className="object-contain" />
+                      <Image src={skinned(getCardImage(card.type))} alt="card" fill className="object-contain" />
                     </div>
                 ))}
               </div>

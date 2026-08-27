@@ -1,6 +1,7 @@
 import {useState} from 'react';
 import Image from 'next/image';
 import {useGameStore} from '@/store/useGameStore';
+import {useSkinAsset} from '@/skins';
 import {ProfileView} from '@/components/profile/ProfileView';
 import {LoginView} from './LoginView';
 import {MainMenuView} from './MainMenuView';
@@ -10,6 +11,7 @@ import type {HomeViewState} from './types';
 
 export function HomeView() {
   const {playerId, error} = useGameStore();
+  const skinned = useSkinAsset();
 
   const [view, setView] = useState<HomeViewState>(playerId ? 'MAIN' : 'LOGIN');
   const [localError, setLocalError] = useState<string | null>(null);
@@ -36,7 +38,7 @@ export function HomeView() {
 
         {view !== 'PROFILE' && (
             <div className="relative w-full max-w-70 sm:max-w-105 aspect-3/1 z-10 mb-8 sm:mb-12">
-              <Image src="/assets/game-title.png" alt="Time Bomb" fill className="object-contain drop-shadow-[0_15px_30px_rgba(0,0,0,0.9)]" priority />
+              <Image src={skinned('/assets/game-title.png')} alt="Time Bomb" fill className="object-contain drop-shadow-[0_15px_30px_rgba(0,0,0,0.9)]" priority />
             </div>
         )}
 

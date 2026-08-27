@@ -1,6 +1,7 @@
 import Image from 'next/image';
 import {ASSETS} from '@/utils/assets';
 import {useGameStore} from '@/store/useGameStore';
+import {useSkinAsset} from '@/skins';
 import {Card} from './Card';
 import type {GamePlayAreaProps} from './types';
 
@@ -13,6 +14,7 @@ export function GamePlayArea({
                                players
                              }: GamePlayAreaProps) {
   const {gameState, activateLoupe, isScannerActive, setReviewingCards, isReviewingCards, playerId} = useGameStore();
+  const skinned = useSkinAsset();
 
   const activePlayerName = players.find(p => p.id === playerWithClippers)?.name || "quelqu'un";
   const me = players.find(p => p.id === playerId) || viewedPlayer;
@@ -91,7 +93,7 @@ export function GamePlayArea({
             {playerWithClippers === viewedPlayer.id && !isScannerActive && !isReviewingCards && (
                 <div className="flex items-center justify-center shrink-0 border-l border-amber-900/30 pl-3 sm:pl-6 ml-2 sm:ml-4">
                   <div className="relative w-24 h-36 sm:w-32 sm:h-48 sm:landscape:w-20 sm:landscape:h-28 lg:landscape:w-24 lg:landscape:h-36 animate-zoom-in">
-                    <Image src={ASSETS.CLIPPER} alt="Pince" fill className="object-contain drop-shadow-[0_0_20px_white]"/>
+                    <Image src={skinned(ASSETS.CLIPPER)} alt="Pince" fill className="object-contain drop-shadow-[0_0_20px_white]"/>
                   </div>
                 </div>
             )}

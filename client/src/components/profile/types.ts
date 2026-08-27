@@ -1,5 +1,5 @@
 import type {ReactNode} from 'react';
-import type {FormattedAchievement} from '@timebomb/shared';
+import type {FormattedAchievement, SkinDef} from '@timebomb/shared';
 
 export interface ProfileViewProps {
   onBack: () => void;
@@ -33,6 +33,17 @@ export interface RadialProgressProps {
 
 export interface AchievementCardProps {
   ach: FormattedAchievement;
+}
+
+export interface SkinModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+}
+
+export interface SkinOptionProps {
+  skin: SkinDef;
+  isActive: boolean;
+  onSelect: () => void;
 }
 
 /** Rarity styling of an achievement tier (ring color, glow, French label). */

@@ -19,11 +19,18 @@ export interface StoredSession {
   username: string;
   /** Signed token issued by the server at login. */
   token: string;
+  /**
+   * Active texture pack, mirrored here so the very first paint already uses the
+   * player's skin instead of flashing the default one while the socket
+   * authenticates. The server stays the source of truth.
+   */
+  activeSkin?: string;
 }
 
 function isStoredSession(value: unknown): value is StoredSession {
   if (typeof value !== 'object' || value === null) return false;
   const v = value as Record<string, unknown>;
+  if (v.activeSkin !== undefined && typeof v.activeSkin !== 'string') return false;
   return typeof v.id === 'string' && typeof v.username === 'string' && typeof v.token === 'string';
 }
 

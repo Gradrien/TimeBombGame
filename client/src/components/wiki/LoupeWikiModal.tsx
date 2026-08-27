@@ -6,6 +6,7 @@ import {
   LOUPE_LAST_USABLE_ROUND,
   MAX_ROUNDS,
 } from '@timebomb/shared';
+import {useSkinAsset} from '@/skins';
 import {WikiModal} from './WikiModal';
 import type {WikiModalControlProps} from './types';
 
@@ -21,13 +22,15 @@ const SUCCESS_ROWS = Array.from({length: LOUPE_LAST_USABLE_ROUND}, (_, i) => ({
 }));
 
 export function LoupeWikiModal({isOpen, onClose}: WikiModalControlProps) {
+  const skinned = useSkinAsset();
+
   return (
       <WikiModal isOpen={isOpen} onClose={onClose} title="Tutoriel : Mode Loupe" icon={<Search size={18}/>}>
         {/* The Loupe card */}
         <div className="flex flex-col sm:flex-row gap-6 items-start">
           <div
               className="w-24 h-36 sm:w-32 sm:h-48 shrink-0 relative rounded-lg overflow-hidden shadow-lg mx-auto sm:mx-0">
-            <Image src="/assets/card-glasses.png" alt="Carte Loupe" fill className="object-contain"/>
+            <Image src={skinned('/assets/card-glasses.png')} alt="Carte Loupe" fill className="object-contain"/>
           </div>
 
           <div className="flex-1 flex flex-col gap-3">
@@ -64,7 +67,7 @@ export function LoupeWikiModal({isOpen, onClose}: WikiModalControlProps) {
         <div className="flex flex-col sm:flex-row gap-6 items-start">
           <div
               className="w-24 h-36 sm:w-32 sm:h-48 shrink-0 relative rounded-lg overflow-hidden shadow-lg mx-auto sm:mx-0">
-            <Image src="/assets/roles/role-red-brouilleur.png" alt="Rôle Brouilleur" fill className="object-contain"/>
+            <Image src={skinned('/assets/roles/role-red-brouilleur.png')} alt="Rôle Brouilleur" fill className="object-contain"/>
           </div>
 
           <div className="flex-1 flex flex-col gap-3">

@@ -1,7 +1,8 @@
 import {create} from 'zustand';
 import {io} from 'socket.io-client';
+import {DEFAULT_SKIN_ID} from '@timebomb/shared';
 import type {GameSocket, GameStore} from './types';
-import {clearSession, loadSession, saveSession} from '@/utils/session';
+import {clearSession, loadSession, saveSession, updateSession} from '@/utils/session';
 
 const SOCKET_URL = process.env.NEXT_PUBLIC_SOCKET_URL || 'http://localhost:3001';
 
@@ -29,6 +30,9 @@ export const useGameStore = create<GameStore>((set, get) => {
 	playerId: savedSession?.id || '',
 	pinCode: '',
 
+	activeSkin: savedSession?.activeSkin || DEFAULT_SKIN_ID,
+	unlockedSkins: [DEFAULT_SKIN_ID],
+
 	isAnimatingCut: false,
 	openRooms: [],
 	error: null,
@@ -53,11 +57,16 @@ export const useGameStore = create<GameStore>((set, get) => {
 		// player to their ongoing game.
 		socket.emit('authenticate', session.token, (response) => {
 		  if (response.success) {
-			set({playerId: response.user.id, playerName: response.user.username});
+			set({
+			  playerId: response.user.id,
+			  playerName: response.user.username,
+			  activeSkin: response.user.activeSkin,
+			});
+			updateSession({activeSkin: response.user.activeSkin});
 		  } else {
 			// Invalid token or deleted account: force a fresh login.
 			clearSession();
-			set({playerId: '', playerName: '', gameState: null});
+			set({playerId: '', playerName: '', gameState: null, activeSkin: DEFAULT_SKIN_ID});
 		  }
 		});
 	  });
@@ -113,8 +122,18 @@ export const useGameStore = create<GameStore>((set, get) => {
 		socket.emit('login', name, pin, (response) => {
 		  if (response.success) {
 			// Never persist the PIN: only the signed token.
-			saveSession({id: response.user.id, username: response.user.username, token: response.token});
-			set({playerId: response.user.id, playerName: response.user.username, error: null});
+			saveSession({
+			  id: response.user.id,
+			  username: response.user.username,
+			  token: response.token,
+			  activeSkin: response.user.activeSkin,
+			});
+			set({
+			  playerId: response.user.id,
+			  playerName: response.user.username,
+			  activeSkin: response.user.activeSkin,
+			  error: null,
+			});
 			resolve(true);
 		  } else {
 			set({error: response.error});
@@ -126,10 +145,55 @@ export const useGameStore = create<GameStore>((set, get) => {
 
 	logout: () => {
 	  clearSession();
-	  set({playerId: '', playerName: '', pinCode: '', gameState: null});
+	  set({
+		playerId: '', playerName: '', pinCode: '', gameState: null,
+		activeSkin: DEFAULT_SKIN_ID, unlockedSkins: [DEFAULT_SKIN_ID],
+	  });
 	},
 
 	setPlayerName: (name) => set({playerName: name}),
+
+	// ------------------------------------------------------------------
+	// Apparence (texture packs)
+	// ------------------------------------------------------------------
+
+	setUnlockedSkins: (skins) => set({unlockedSkins: skins}),
+
+	/** The skin is only applied locally once the server has accepted it. */
+	setActiveSkin: (skinId) => {
+	  return new Promise((resolve) => {
+		const {socket, activeSkin} = get();
+		if (!socket || skinId === activeSkin) return resolve(false);
+
+		socket.emit('setActiveSkin', skinId, (response) => {
+		  if (response.success) {
+			set({activeSkin: skinId});
+			updateSession({activeSkin: skinId});
+		  } else {
+			set({error: response.error});
+		  }
+		  resolve(response.success);
+		});
+	  });
+	},
+
+	unlockSkin: (password) => {
+	  return new Promise((resolve) => {
+		const {socket} = get();
+		if (!socket) return resolve({success: false, error: 'Connexion au serveur perdue.'});
+
+		socket.emit('unlockSkin', password, async (response) => {
+		  if (!response.success) return resolve({success: false, error: response.error});
+
+		  set({unlockedSkins: response.unlockedSkins});
+		  // A freshly unlocked pack is equipped right away: that is what the
+		  // player is after when they type the password.
+		  await get().setActiveSkin(response.skinId);
+		  resolve({success: true, skinId: response.skinId});
+		});
+	  });
+	},
+
 	setPinCode: (pin) => set({pinCode: pin}),
 	clearError: () => set({error: null}),
 

@@ -1,6 +1,7 @@
 import Image from 'next/image';
 import {Dices, EyeOff} from 'lucide-react';
 import {CHAOS_PROBABILITIES} from '@timebomb/shared';
+import {useSkinAsset} from '@/skins';
 import {WikiModal} from './WikiModal';
 import {ChaosOutcomeRow} from './ChaosOutcomeRow';
 import type {ChaosOutcome, WikiModalControlProps} from './types';
@@ -43,6 +44,8 @@ const OUTCOMES: ChaosOutcome[] = [
 ];
 
 export function ChaosWikiModal({isOpen, onClose}: WikiModalControlProps) {
+  const skinned = useSkinAsset();
+
   return (
       <WikiModal isOpen={isOpen} onClose={onClose} title="Tutoriel : Mode Chaos" icon={<Dices size={18}/>}>
         {/* The principle */}
@@ -114,11 +117,11 @@ export function ChaosWikiModal({isOpen, onClose}: WikiModalControlProps) {
               <h4 className="text-xs uppercase text-bronze font-bold mb-3 tracking-widest">Compteur de rôles</h4>
               <div className="flex items-center gap-3">
                 <div className="flex items-center gap-2 rounded-lg border border-sherlock/40 bg-sherlock-deep/40 px-3 py-1.5 shadow-inner">
-                  <Image src="/assets/roles/role-blue-1.png" alt="Sherlock" width={22} height={30} className="object-contain"/>
+                  <Image src={skinned('/assets/roles/role-blue-1.png')} alt="Sherlock" width={22} height={30} className="object-contain"/>
                   <span className="text-lg font-black text-sherlock">?</span>
                 </div>
                 <div className="flex items-center gap-2 rounded-lg border border-moriarty/40 bg-moriarty-deep/40 px-3 py-1.5 shadow-inner">
-                  <Image src="/assets/roles/role-red-1.png" alt="Moriarty" width={22} height={30} className="object-contain"/>
+                  <Image src={skinned('/assets/roles/role-red-1.png')} alt="Moriarty" width={22} height={30} className="object-contain"/>
                   <span className="text-lg font-black text-moriarty">?</span>
                 </div>
               </div>

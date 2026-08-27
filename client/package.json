@@ -3,11 +3,12 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
-    "build": "next build",
+    "dev": "npm run skins:manifest && next dev",
+    "build": "npm run skins:manifest && next build",
     "start": "next start",
     "lint": "eslint src",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "skins:manifest": "node scripts/generate-skin-manifest.mjs"
   },
   "dependencies": {
     "@timebomb/shared": "^1.0.0",

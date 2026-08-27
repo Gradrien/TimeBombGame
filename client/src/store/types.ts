@@ -19,6 +19,11 @@ export interface GameStoreState {
   /** PIN being typed in the login form — never persisted. */
   pinCode: string;
 
+  /** Texture pack the player plays with (see shared/skins.ts). */
+  activeSkin: string;
+  /** Packs the player owns — loaded with the profile, where skins are picked. */
+  unlockedSkins: string[];
+
   isAnimatingCut: boolean;
   openRooms: RoomInfo[];
   error: string | null;
@@ -35,6 +40,11 @@ export interface GameStoreActions {
   logout: () => void;
 
   setPlayerName: (name: string) => void;
+  /** Equips an owned pack; resolves false when already active or refused by the server. */
+  setActiveSkin: (skinId: string) => Promise<boolean>;
+  /** Redeems a secret pack's password; on success the pack is unlocked and equipped. */
+  unlockSkin: (password: string) => Promise<{success: true; skinId: string} | {success: false; error: string}>;
+  setUnlockedSkins: (skins: string[]) => void;
   setPinCode: (pin: string) => void;
   clearError: () => void;
 

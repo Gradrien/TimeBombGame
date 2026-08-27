@@ -35,6 +35,8 @@ export interface UserStats {
 export interface PublicUser extends UserStats {
   id: string;
   username: string;
+  /** Texture pack the player currently plays with (see shared/skins.ts). */
+  activeSkin: string;
 }
 
 /** An achievement enriched with the player's progression, ready to display. */
@@ -48,6 +50,8 @@ export interface FormattedAchievement extends AchievementDef {
 
 export interface UserProfile extends PublicUser {
   formattedAchievements: FormattedAchievement[];
+  /** Ids of the texture packs this player owns (the default one included). */
+  unlockedSkins: string[];
 }
 
 export interface RoomInfo {
@@ -78,6 +82,15 @@ export type UpdateUsernameResponse =
 	| { success: true }
 	| { success: false; error: string };
 
+/** Unlocking a secret pack: the password is checked server-side only. */
+export type UnlockSkinResponse =
+	| { success: true; skinId: string; unlockedSkins: string[] }
+	| { success: false; error: string };
+
+export type SetActiveSkinResponse =
+	| { success: true }
+	| { success: false; error: string };
+
 // ---------------------------------------------------------------------------
 // Events
 // ---------------------------------------------------------------------------
@@ -89,6 +102,11 @@ export interface ClientToServerEvents {
   authenticate: (token: string, ack: (response: AuthenticateResponse) => void) => void;
   getUserProfile: (ack: (profile: UserProfile | null) => void) => void;
   updateUsername: (newName: string, ack: (response: UpdateUsernameResponse) => void) => void;
+
+  // --- Apparence (texture packs) ---
+  /** Redeems the password of a secret pack; unlocks it for good on success. */
+  unlockSkin: (password: string, ack: (response: UnlockSkinResponse) => void) => void;
+  setActiveSkin: (skinId: string, ack: (response: SetActiveSkinResponse) => void) => void;
 
   // --- Rooms ---
   getOpenRooms: () => void;

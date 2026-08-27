@@ -24,6 +24,7 @@ import {initGameSessionStats, processEndGameStats, recordLoupe} from './services
 import {authenticatePlayer, toSafeUser, validateUsername} from './services/authService';
 import {createSessionToken, verifySessionToken} from './services/tokenService';
 import {buildUserProfile} from './services/profileService';
+import {getUnlockedSkins, setActiveSkin, unlockSkinWithPassword} from './services/skinService';
 import {prisma} from './db';
 import type {TypedServer, TypedSocket} from './socketTypes';
 
@@ -385,6 +386,36 @@ export function setupSocketHandlers(io: TypedServer, socket: TypedSocket) {
 	  ack({success: true});
 	} catch (error) {
 	  const message = error instanceof Error ? error.message : 'Erreur serveur lors de la mise à jour.';
+	  ack({success: false, error: message});
+	}
+  });
+
+  // ------------------------------------------------------------------
+  // Apparence (texture packs)
+  // ------------------------------------------------------------------
+
+  socket.on('unlockSkin', async (password, ack) => {
+	const userId = socket.data.userId;
+	if (!userId) return ack({success: false, error: 'Identification requise.'});
+
+	try {
+	  const skinId = await unlockSkinWithPassword(userId, password);
+	  ack({success: true, skinId, unlockedSkins: await getUnlockedSkins(userId)});
+	} catch (error) {
+	  const message = error instanceof Error ? error.message : 'Erreur serveur lors du déblocage.';
+	  ack({success: false, error: message});
+	}
+  });
+
+  socket.on('setActiveSkin', async (skinId, ack) => {
+	const userId = socket.data.userId;
+	if (!userId) return ack({success: false, error: 'Identification requise.'});
+
+	try {
+	  await setActiveSkin(userId, skinId);
+	  ack({success: true});
+	} catch (error) {
+	  const message = error instanceof Error ? error.message : 'Erreur serveur lors du changement de pack.';
 	  ack({success: false, error: message});
 	}
   });

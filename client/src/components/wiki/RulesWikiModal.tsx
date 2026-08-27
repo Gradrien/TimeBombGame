@@ -1,9 +1,12 @@
 import Image from 'next/image';
 import {BookOpen} from 'lucide-react';
+import {useSkinAsset} from '@/skins';
 import {WikiModal} from './WikiModal';
 import type {WikiModalControlProps} from './types';
 
 export function RulesWikiModal({isOpen, onClose}: WikiModalControlProps) {
+  const skinned = useSkinAsset();
+
   return (
       <WikiModal isOpen={isOpen} onClose={onClose} title="Comment Jouer ?" icon={<BookOpen size={18}/>}>
 
@@ -11,10 +14,10 @@ export function RulesWikiModal({isOpen, onClose}: WikiModalControlProps) {
         <div className="flex flex-col sm:flex-row gap-6 items-start">
           <div className="flex gap-2 mx-auto sm:mx-0 shrink-0">
             <div className="w-16 h-24 relative rounded shadow-lg">
-              <Image src="/assets/roles/role-blue-1.png" alt="Sherlock" fill className="object-contain" />
+              <Image src={skinned('/assets/roles/role-blue-1.png')} alt="Sherlock" fill className="object-contain" />
             </div>
             <div className="w-16 h-24 relative rounded shadow-lg">
-              <Image src="/assets/roles/role-red-1.png" alt="Moriarty" fill className="object-contain" />
+              <Image src={skinned('/assets/roles/role-red-1.png')} alt="Moriarty" fill className="object-contain" />
             </div>
           </div>
 
@@ -35,13 +38,13 @@ export function RulesWikiModal({isOpen, onClose}: WikiModalControlProps) {
         <div className="flex flex-col sm:flex-row gap-6 items-start">
           <div className="flex gap-2 mx-auto sm:mx-0 shrink-0">
             <div className="w-12 h-16 relative">
-              <Image src="/assets/card-safe.png" alt="Safe" fill className="object-contain" />
+              <Image src={skinned('/assets/card-safe.png')} alt="Safe" fill className="object-contain" />
             </div>
             <div className="w-12 h-16 relative">
-              <Image src="/assets/card-defuse.png" alt="Defuse" fill className="object-contain" />
+              <Image src={skinned('/assets/card-defuse.png')} alt="Defuse" fill className="object-contain" />
             </div>
             <div className="w-12 h-16 relative">
-              <Image src="/assets/card-bomb.png" alt="Bomb" fill className="object-contain" />
+              <Image src={skinned('/assets/card-bomb.png')} alt="Bomb" fill className="object-contain" />
             </div>
           </div>
 
@@ -79,7 +82,7 @@ export function RulesWikiModal({isOpen, onClose}: WikiModalControlProps) {
         {/* 4. Cutting */}
         <div className="flex flex-col sm:flex-row gap-6 items-start">
           <div className="w-20 h-20 shrink-0 relative mx-auto sm:mx-0">
-            <Image src="/assets/clipper.png" alt="Pince" fill className="object-contain drop-shadow-[0_0_15px_white]" />
+            <Image src={skinned('/assets/clipper.png')} alt="Pince" fill className="object-contain drop-shadow-[0_0_15px_white]" />
           </div>
 
           <div className="flex-1 flex flex-col gap-3">

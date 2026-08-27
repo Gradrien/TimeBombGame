@@ -26,8 +26,12 @@ model User {
   cardsJammed      Int @default(0)
   consecutiveBombs Int @default(0)
 
+  // Pack de textures actuellement utilisé (voir shared/skins.ts)
+  activeSkin String @default("default")
+
   // --- NOUVELLE RELATION ---
   achievements UserAchievement[]
+  skins        UserSkin[]
 }
 
 model UserAchievement {
@@ -40,4 +44,17 @@ model UserAchievement {
 
   // On s'assure qu'un joueur ne débloque pas 2 fois le même succès
   @@unique([userId, achievementId])
+}
+
+// Pack de textures secret débloqué par un joueur (mot de passe)
+model UserSkin {
+  id         String   @id @default(uuid())
+  skinId     String // L'ID du pack (ex: "Imori")
+  unlockedAt DateTime @default(now())
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId String
+
+  // Un pack ne peut être débloqué qu'une fois par joueur
+  @@unique([userId, skinId])
 }

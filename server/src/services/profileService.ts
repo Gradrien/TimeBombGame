@@ -1,6 +1,7 @@
 import {ACHIEVEMENTS, AchievementDef, FormattedAchievement, UserProfile} from '@timebomb/shared';
 import {prisma} from '../db';
 import {toSafeUser} from './authService';
+import {getUnlockedSkins} from './skinService';
 
 /**
  * Construit le profil complet d'un joueur : ses statistiques publiques et ses
@@ -64,5 +65,6 @@ export async function buildUserProfile(userId: string): Promise<UserProfile | nu
   }
 
   const {achievements: _achievements, ...publicUser} = toSafeUser(user);
-  return {...publicUser, formattedAchievements};
+  const unlockedSkins = await getUnlockedSkins(userId);
+  return {...publicUser, formattedAchievements, unlockedSkins};
 }
