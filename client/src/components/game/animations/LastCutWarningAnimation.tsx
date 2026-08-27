@@ -1,9 +1,11 @@
 import Image from 'next/image';
 import {motion} from 'framer-motion';
 import {ASSETS} from '@/utils/assets';
+import {useSkinAsset} from '@/skins';
 
 /** Fullscreen warning shown when the next cut is the last one of the round. */
 export function LastCutWarningAnimation() {
+  const skinned = useSkinAsset();
   return (
       <motion.div
           initial={{opacity: 0}} animate={{opacity: 1}} exit={{opacity: 0}}
@@ -23,7 +25,7 @@ export function LastCutWarningAnimation() {
           />
 
           <div className="relative w-full h-full z-10 mb-4 drop-shadow-[0_20px_40px_rgba(0,0,0,0.8)]">
-            <Image src={ASSETS.CLIPPER} alt="Pince" fill className="object-contain" priority />
+            <Image src={skinned(ASSETS.CLIPPER)} alt="Pince" fill className="object-contain" priority />
           </div>
 
           <div className="absolute -bottom-10 sm:-bottom-16 landscape:-bottom-8 left-1/2 -translate-x-1/2 whitespace-nowrap z-20">

@@ -2,9 +2,12 @@ import Image from 'next/image';
 import {motion, useAnimation} from 'framer-motion';
 import {useEffect, useRef} from 'react';
 import {getCardImage, ASSETS} from '@/utils/assets';
+import {useSkinAsset} from '@/skins';
 import type {CardRevealProps} from './types';
 
 export function CardReveal({cards, flippedIndices, isShuffling}: CardRevealProps) {
+  const skinned = useSkinAsset();
+
   const controls = useAnimation();
 
   const prevCardsLength = useRef(0);
@@ -93,10 +96,10 @@ export function CardReveal({cards, flippedIndices, isShuffling}: CardRevealProps
                     transition={{type: 'spring', stiffness: 220, damping: 18}}
                 >
                   <div className="absolute inset-0" style={{backfaceVisibility: 'hidden'}}>
-                    <Image src={ASSETS.CARD_BACK} alt="Dos de carte" fill className="object-contain drop-shadow-lg"/>
+                    <Image src={skinned(ASSETS.CARD_BACK)} alt="Dos de carte" fill className="object-contain drop-shadow-lg"/>
                   </div>
                   <div className="absolute inset-0" style={{backfaceVisibility: 'hidden', transform: 'rotateY(180deg)'}}>
-                    <Image src={getCardImage(type)} alt="Face de la carte" fill className="object-contain drop-shadow-xl"/>
+                    <Image src={skinned(getCardImage(type))} alt="Face de la carte" fill className="object-contain drop-shadow-xl"/>
                   </div>
                 </motion.div>
               </motion.div>

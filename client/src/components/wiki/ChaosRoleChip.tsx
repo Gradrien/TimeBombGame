@@ -1,9 +1,11 @@
 import Image from 'next/image';
 import {cn} from '@/components/ui';
+import {useSkinAsset} from '@/skins';
 import type {ChaosRoleChipProps} from './types';
 
 export function ChaosRoleChip({team}: ChaosRoleChipProps) {
   const isBlue = team === 'blue';
+  const skinned = useSkinAsset();
   return (
       <span
           className={cn(
@@ -12,7 +14,7 @@ export function ChaosRoleChip({team}: ChaosRoleChipProps) {
           )}
       >
         <Image
-            src={`/assets/roles/role-${isBlue ? 'blue' : 'red'}-1.png`}
+            src={skinned(`/assets/roles/role-${isBlue ? 'blue' : 'red'}-1.png`)}
             alt={isBlue ? 'Sherlock' : 'Moriarty'}
             width={14}
             height={19}

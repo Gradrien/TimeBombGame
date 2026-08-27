@@ -2,6 +2,7 @@ import Image from 'next/image';
 import {motion} from 'framer-motion';
 import type {CardType} from '@timebomb/shared';
 import {getCardImage} from '@/utils/assets';
+import {useSkinAsset} from '@/skins';
 import type {CardCutAnimationProps} from './types';
 
 interface CutStyle {
@@ -21,6 +22,7 @@ const DEFAULT_STYLE: CutStyle = {color: '#c9a56d', accent: '#f3e7d3', text: 'RIE
 
 /** Fullscreen reveal of the card that was just cut. */
 export function CardCutAnimation({data}: CardCutAnimationProps) {
+  const skinned = useSkinAsset();
   const config = CUT_STYLES[data.card.type] ?? DEFAULT_STYLE;
 
   const shakeAnimation = config.isBomb ? {
@@ -73,7 +75,7 @@ export function CardCutAnimation({data}: CardCutAnimationProps) {
               initial={{scale: 1}} animate={config.isBomb ? {scale: [1, 1.1, 1]} : {}} transition={{duration: 0.3, delay: 0.1}}
               className="relative w-full h-full drop-shadow-[0_20px_50px_rgba(0,0,0,0.9)] z-20"
           >
-            <Image src={getCardImage(data.card.type)} alt="Résultat" fill className="object-contain" priority />
+            <Image src={skinned(getCardImage(data.card.type))} alt="Résultat" fill className="object-contain" priority />
           </motion.div>
 
           <motion.div

@@ -1,6 +1,7 @@
 import Image from 'next/image';
 import {motion} from 'framer-motion';
 import {getRoleCard} from '@/utils/assets';
+import {useSkinAsset} from '@/skins';
 import {cn} from '@/components/ui';
 import type {PlayerResultCardProps} from './types';
 
@@ -8,6 +9,7 @@ export function PlayerResultCard({
                                    player, index, glow, isWinning, isMe, inMenus, skinIndex,
                                  }: PlayerResultCardProps) {
   const disconnected = player.connected === false;
+  const skinned = useSkinAsset();
   // "Back in the lobby" and "disconnected" share the same visual treatment
   // (dimmed name + golden italic label).
   const muted = inMenus || disconnected;
@@ -34,7 +36,7 @@ export function PlayerResultCard({
               )}
           >
             <Image
-                src={getRoleCard(player.role, skinIndex)}
+                src={skinned(getRoleCard(player.role, skinIndex))}
                 alt={player.role ?? 'role'}
                 fill
                 className="object-contain drop-shadow-xl"

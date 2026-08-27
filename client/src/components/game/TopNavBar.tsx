@@ -1,5 +1,6 @@
 import Image from 'next/image';
 import {ASSETS} from '@/utils/assets';
+import {useSkinAsset} from '@/skins';
 import {Stripes} from '@/components/ui';
 import type {TopNavBarProps} from './types';
 
@@ -11,6 +12,7 @@ export function TopNavBar({
                             playerWithClippers,
                           }: TopNavBarProps) {
   const isViewingOpponent = viewedPlayerId !== null && viewedPlayerId !== me.id;
+  const skinned = useSkinAsset();
 
   const playerButtonBase = `
       min-w-0 rounded-lg border font-serif uppercase tracking-widest font-bold
@@ -58,7 +60,7 @@ export function TopNavBar({
             {playerWithClippers === me.id && (
                 <div className="relative h-4 w-4 shrink-0 sm:h-5 sm:w-5">
                   <Image
-                      src={ASSETS.CLIPPER}
+                      src={skinned(ASSETS.CLIPPER)}
                       alt="Pince"
                       fill
                       className="object-contain drop-shadow-md"
@@ -95,7 +97,7 @@ export function TopNavBar({
                 {playerWithClippers === opp.id && (
                     <div className="relative h-4 w-4 shrink-0 sm:h-5 sm:w-5">
                       <Image
-                          src={ASSETS.CLIPPER}
+                          src={skinned(ASSETS.CLIPPER)}
                           alt="Pince"
                           fill
                           className="object-contain drop-shadow-md"

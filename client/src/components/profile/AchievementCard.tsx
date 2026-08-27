@@ -1,11 +1,13 @@
 import Image from 'next/image';
 import {Lock} from 'lucide-react';
 import {getBadgeImage, ASSETS} from '@/utils/assets';
+import {useSkinAsset} from '@/skins';
 import {tierStyle} from './tiers';
 import type {AchievementCardProps} from './types';
 
 export function AchievementCard({ach}: AchievementCardProps) {
   const t = tierStyle(ach.tier);
+  const skinned = useSkinAsset();
   const colored = ach.isUnlocked || (ach.tier && ach.tier > 1);
 
   return (
@@ -26,10 +28,10 @@ export function AchievementCard({ach}: AchievementCardProps) {
         <div className="relative z-10 mb-2 flex items-center justify-center h-20 w-20">
           <Image
               fill
-              src={getBadgeImage(ach.id)}
+              src={skinned(getBadgeImage(ach.id))}
               alt={ach.name}
               onError={(e) => {
-                (e.currentTarget as HTMLImageElement).src = ASSETS.BADGE_PLACEHOLDER;
+                (e.currentTarget as HTMLImageElement).src = skinned(ASSETS.BADGE_PLACEHOLDER);
               }}
               className={`object-contain transition-all duration-500
               ${colored ? 'group-hover:scale-110' : 'grayscale opacity-40 brightness-50'}`}

@@ -1,6 +1,6 @@
 import {useState, useEffect} from 'react';
 import {motion} from 'framer-motion';
-import {ArrowLeft, Pencil, LogOut, Check, X} from 'lucide-react';
+import {ArrowLeft, Pencil, LogOut, Check, X, Palette} from 'lucide-react';
 import type {UserProfile} from '@timebomb/shared';
 import {useGameStore} from '@/store/useGameStore';
 import {updateSession} from '@/utils/session';
@@ -10,11 +10,13 @@ import {StatFigure} from './StatFigure';
 import {CampWinRateRow} from './CampWinRateRow';
 import {RadialProgress} from './RadialProgress';
 import {AchievementCard} from './AchievementCard';
+import {SkinModal} from './SkinModal';
 import type {ProfileViewProps} from './types';
 
 export function ProfileView({onBack}: ProfileViewProps) {
-  const {playerName, playerId, logout, socket, setPlayerName} = useGameStore();
+  const {playerName, playerId, logout, socket, setPlayerName, setUnlockedSkins} = useGameStore();
   const [userData, setUserData] = useState<UserProfile | null>(null);
+  const [isSkinModalOpen, setSkinModalOpen] = useState(false);
 
   const [isEditingName, setIsEditingName] = useState(false);
   const [newName, setNewName] = useState('');
@@ -24,9 +26,13 @@ export function ProfileView({onBack}: ProfileViewProps) {
   useEffect(() => {
     // The server identifies the player through its socket: no id to send.
     if (socket && playerId) {
-      socket.emit('getUserProfile', (data) => setUserData(data));
+      socket.emit('getUserProfile', (data) => {
+        setUserData(data);
+        // The skin picker lives here: this is where the owned packs are needed.
+        if (data) setUnlockedSkins(data.unlockedSkins);
+      });
     }
-  }, [socket, playerId]);
+  }, [socket, playerId, setUnlockedSkins]);
 
   const handleUpdateName = () => {
     const trimmed = newName.trim();
@@ -139,6 +145,8 @@ export function ProfileView({onBack}: ProfileViewProps) {
                                             setIsEditingName(true);
                                             setNewName(playerName);
                                           }}/>
+                        <IconActionButton icon={<Palette size={15}/>} label="Apparence"
+                                          onClick={() => setSkinModalOpen(true)}/>
                         <IconActionButton icon={<LogOut size={15}/>} label="Déconnexion" danger onClick={logout}/>
                       </div>
                     </>
@@ -230,6 +238,8 @@ export function ProfileView({onBack}: ProfileViewProps) {
             </div>
           </Panel>
         </div>
+
+        <SkinModal isOpen={isSkinModalOpen} onClose={() => setSkinModalOpen(false)}/>
       </div>
   );
 }

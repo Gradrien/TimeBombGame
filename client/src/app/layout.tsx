@@ -1,5 +1,6 @@
 import type {Metadata} from "next";
 import {Inter} from 'next/font/google';
+import {SkinBackground} from "@/skins";
 import "./globals.css";
 
 const inter = Inter({subsets: ['latin']});
@@ -20,6 +21,7 @@ export default function RootLayout({
 		  className={`${inter.className} h-full antialiased`}
 	  >
 	  <body className="min-h-full flex flex-col bg-cover bg-center bg-no-repeat bg-fixed">
+	  <SkinBackground/>
 	  {children}
 	  </body>
 	  </html>

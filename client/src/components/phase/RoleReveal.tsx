@@ -3,6 +3,7 @@ import Image from 'next/image';
 import {BROUILLEUR_JAM_CHANCE, type Role} from '@timebomb/shared';
 import {Button} from '@/components/ui';
 import {getRoleImage, ASSETS} from '@/utils/assets';
+import {useSkinAsset} from '@/skins';
 import type {RoleInfo, RoleRevealProps} from './types';
 
 const ROLE_INFO: Record<Role, RoleInfo> = {
@@ -35,7 +36,8 @@ export function RoleReveal({
                              skinIndex = 1,
                            }: RoleRevealProps) {
   const config = ROLE_INFO[role];
-  const characterImg = getRoleImage(role, skinIndex);
+  const skinned = useSkinAsset();
+  const characterImg = skinned(getRoleImage(role, skinIndex));
 
   return (
       <motion.div
@@ -71,7 +73,7 @@ export function RoleReveal({
                     className="relative w-full h-[45vh] landscape:h-[65vh] flex items-end justify-center z-10"
                 >
                   <Image
-                      src={ASSETS.ROLE_BACK}
+                      src={skinned(ASSETS.ROLE_BACK)}
                       alt="Identité secrète"
                       fill
                       priority

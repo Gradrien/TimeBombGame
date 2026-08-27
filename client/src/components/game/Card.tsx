@@ -1,8 +1,10 @@
 import Image from 'next/image';
 import {getCardImage, ASSETS} from '@/utils/assets';
+import {useSkinAsset} from '@/skins';
 import type {CardProps} from './types';
 
 export function Card({card, isInteractable, onAction, forceFaceUp}: CardProps) {
+  const skinned = useSkinAsset();
   const isFlipped = card.isRevealed || card.isPublic || forceFaceUp;
 
   return (
@@ -27,10 +29,10 @@ export function Card({card, isInteractable, onAction, forceFaceUp}: CardProps) {
             }}
         >
           <div className="absolute inset-0" style={{backfaceVisibility: 'hidden'}}>
-            <Image src={ASSETS.CARD_BACK} alt="Câble" fill className="object-contain"/>
+            <Image src={skinned(ASSETS.CARD_BACK)} alt="Câble" fill className="object-contain"/>
           </div>
           <div className="absolute inset-0" style={{backfaceVisibility: 'hidden', transform: 'rotateY(180deg)'}}>
-            <Image src={getCardImage(card.type)} alt={card.type} fill className="object-contain"/>
+            <Image src={skinned(getCardImage(card.type))} alt={card.type} fill className="object-contain"/>
           </div>
         </div>
       </button>

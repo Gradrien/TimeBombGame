@@ -68,7 +68,8 @@ body {
   overscroll-behavior-y: none;
   /* Fallback color while the background image loads. */
   background-color: #09090b;
-  background-image: url('/assets/background.png');
+  /* `--skin-background` is set by the active texture pack (see src/skins). */
+  background-image: var(--skin-background, url('/assets/background.png'));
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
